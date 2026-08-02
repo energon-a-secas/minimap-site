@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimap | The Minimap-Only ARPG</title>
+  <meta name="description" content="Grind procedural dungeon maps through the minimap alone. Start at level 80 as druid, archer, or mage and claw to 100. Fully in your browser">
+  <meta property="og:title" content="Minimap: The Minimap-Only ARPG">
+  <meta property="og:description" content="Grind procedural maps you can only see through the minimap. Start at level 80, claw to 100">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://minimap.neorgon.com/">
+  <meta property="og:site_name" content="Neorgon">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Minimap: The Minimap-Only ARPG">
+  <meta name="twitter:description" content="Grind procedural maps you can only see through the minimap">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://minimap.neorgon.com/">
+  <meta property="og:locale" content="en_US">
+  <meta name="theme-color" content="#040714">
+  <meta property="og:image" content="https://minimap.neorgon.com/og-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:image" content="https://minimap.neorgon.com/og-preview.jpg">
+  <link rel="icon" type="image/x-icon" href="https://cdn.neorgon.org/v1.0.0/favicon.ico" />
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Neorgon Header Kit (vendored; ?header=live swaps CSS to CDN). Keep after style.css — the kit owns the header. -->
+  <script>(function(){var m=location.search.match(/[?&]theme=([\w-]+)/)||document.cookie.match(/(?:^|;\s*)neo_theme=([\w-]+)/);if(m&&m[1]!=='default')document.documentElement.dataset.theme=decodeURIComponent(m[1]);})();</script>
+  <link rel="stylesheet" href="css/neorgon-header.css">
+  <link rel="stylesheet" href="css/neorgon-themes.css">
+  <link rel="stylesheet" href="https://cdn.neorgon.org/v1.0.0/header/season.css">
+  <script defer src="js/neorgon-header.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Minimap",
+    "description": "A parody ARPG where the whole game happens on the minimap. Grind procedural dungeon maps, dodge boss telegraphs, and level from 80 to 100.",
+    "url": "https://minimap.neorgon.com/",
+    "genre": ["Action role-playing", "Parody"],
+    "gamePlatform": "Web browser",
+    "playMode": "SinglePlayer",
+    "applicationCategory": "Game",
+    "operatingSystem": "Any",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Organization", "name": "Neorgon", "url": "https://neorgon.com/" }
+  }
+  </script>
+</head>
+<body data-screen="loading">
+
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="header-bar" data-header-mode="app">
+    <div class="header-logo">
+      <a href="https://neorgon.com/" target="_blank" rel="noopener noreferrer">
+        <img src="https://cdn.neorgon.org/v1.0.0/energon-classic-logo.png" class="header-logo-img" alt="Logo">
+      </a>
+      <a href="./" class="header-title-link">
+        <h1>Minimap</h1>
+        <div class="header-subtitle">The ARPG where you only see the minimap</div>
+      </a>
+    </div>
+
+    <div class="header-right">
+      <div class="header-actions">
+        <button class="btn btn--ghost btn--sm" id="rosterBtn" data-keep-mobile>Characters</button>
+        <button class="btn btn--ghost btn--sm" id="helpBtn">Help</button>
+      </div>
+      <a class="header-home" href="https://neorgon.com/" title="neorgon.com" aria-label="Neorgon home">
+        <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+        </svg>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ── Character creation ─────────────────────────────────────────── -->
+    <section class="screen" id="screen-chargen" hidden>
+      <div class="chargen">
+        <div class="chargen__intro">
+          <h2 class="screen-title">Forge your exile</h2>
+          <p class="screen-lead">You wake up at level 80 with no memory of levels 1 to 79. The minimap is all you can see. It is enough.</p>
+        </div>
+
+        <div class="chargen__grid">
+          <div class="chargen__panel">
+            <h3 class="panel-label">Class</h3>
+            <div class="class-picker" id="classPicker" role="radiogroup" aria-label="Class"></div>
+
+            <h3 class="panel-label">Body</h3>
+            <div class="body-options" id="bodyOptions"></div>
+
+            <h3 class="panel-label">Name</h3>
+            <input type="text" id="charName" class="text-input" maxlength="18" placeholder="Name your exile" autocomplete="off">
+          </div>
+
+          <div class="chargen__panel chargen__preview">
+            <h3 class="panel-label">Your exile</h3>
+            <div class="portrait" id="portraitBox" aria-hidden="true"></div>
+            <p class="portrait-note">Portrait art is coming. For now, enjoy this artisanal silhouette.</p>
+            <div class="chargen__actions">
+              <button class="btn btn--primary btn--block" id="createCharBtn">Begin the grind</button>
+              <button class="btn btn--ghost btn--block" id="skipCharBtn">Skip, just let me play</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Roster ─────────────────────────────────────────────────────── -->
+    <section class="screen" id="screen-roster" hidden>
+      <div class="roster">
+        <h2 class="screen-title">Characters</h2>
+        <p class="screen-lead">Each exile keeps their own atlas progress. Deleting one is permanent, like your mistakes.</p>
+        <div class="roster__list" id="rosterList"></div>
+        <button class="btn btn--secondary" id="newCharBtn">Create new exile</button>
+      </div>
+    </section>
+
+    <!-- ── Atlas hub ──────────────────────────────────────────────────── -->
+    <section class="screen" id="screen-hub" hidden>
+      <div class="hub">
+        <div class="hub__top">
+          <div>
+            <h2 class="screen-title">Atlas of Worms</h2>
+            <p class="screen-lead" id="hubCharLine"></p>
+          </div>
+          <div class="hub__legend">
+            <span><i class="dot dot--open"></i> Open</span>
+            <span><i class="dot dot--cleared"></i> Cleared</span>
+            <span><i class="dot dot--locked"></i> Locked</span>
+          </div>
+        </div>
+        <div class="atlas-wrap">
+          <svg id="atlasSvg" viewBox="0 0 1000 560" role="img" aria-label="Atlas map of unlockable dungeon nodes"></svg>
+        </div>
+        <div class="hub__detail" id="hubDetail" hidden>
+          <div class="hub__detail-text">
+            <h3 id="hubMapName"></h3>
+            <p id="hubMapInfo"></p>
+          </div>
+          <button class="btn btn--primary" id="enterMapBtn">Enter map</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Game ───────────────────────────────────────────────────────── -->
+    <section class="screen screen--game" id="screen-game" hidden>
+      <div class="stage" id="stage">
+        <canvas id="bgCanvas" aria-hidden="true"></canvas>
+        <canvas id="gameCanvas" role="img" aria-label="Minimap view of the dungeon"></canvas>
+
+        <div class="boss-bar" id="bossBar" hidden>
+          <div class="boss-bar__name" id="bossName"></div>
+          <div class="boss-bar__track"><div class="boss-bar__fill" id="bossFill"></div></div>
+        </div>
+
+        <!-- Map info + quest tracker, top right, gold serif -->
+        <div class="tracker">
+          <div class="tracker__map">
+            <div id="trkMapName"></div>
+            <div id="trkMonsterLevel"></div>
+            <div>Standard League</div>
+            <div>Permanent Squinting</div>
+          </div>
+          <div class="tracker__quest">
+            <div class="tracker__quest-title" id="trkQuestTitle"></div>
+            <div class="tracker__quest-body" id="trkQuestBody"></div>
+          </div>
+        </div>
+
+        <!-- Bottom HUD -->
+        <div class="hud">
+          <div class="orb orb--life">
+            <div class="orb__fill" id="lifeFill"></div>
+            <div class="orb__label" id="lifeLabel">0/0</div>
+          </div>
+
+          <div class="hud__center">
+            <div class="charline" id="charLine"></div>
+            <div class="skillbar">
+              <button class="skill" id="skillBtn" aria-label="Class skill (Q)">
+                <span class="skill__icon" id="skillIcon"></span>
+                <span class="skill__cd" id="skillCd"></span>
+                <span class="skill__key">Q</span>
+              </button>
+              <button class="skill skill--util" id="waypointBtn" aria-label="Waypoints (T)">
+                <span class="skill__icon">◈</span>
+                <span class="skill__key">T</span>
+              </button>
+              <button class="skill skill--util" id="leaveBtn" aria-label="Leave map (Esc)">
+                <span class="skill__icon">⏏</span>
+                <span class="skill__key">Esc</span>
+              </button>
+            </div>
+            <div class="xpbar" title="Experience">
+              <div class="xpbar__fill" id="xpFill"></div>
+              <div class="xpbar__label" id="xpLabel"></div>
+            </div>
+          </div>
+
+          <div class="orb orb--mana">
+            <div class="orb__fill" id="manaFill"></div>
+            <div class="orb__label" id="manaLabel">0/0</div>
+          </div>
+        </div>
+
+        <!-- Waypoint panel -->
+        <div class="wp-panel" id="wpPanel" hidden>
+          <h3>Waypoints</h3>
+          <div class="wp-panel__list" id="wpList"></div>
+          <button class="btn btn--ghost btn--sm" id="wpClose">Close</button>
+        </div>
+
+        <!-- Death overlay -->
+        <div class="overlay overlay--death" id="deathOverlay" hidden>
+          <h2>You have died</h2>
+          <p id="deathLine"></p>
+          <p class="overlay__penalty" id="deathPenalty"></p>
+          <button class="btn btn--primary" id="respawnBtn">Respawn at waypoint</button>
+        </div>
+
+        <!-- Map cleared overlay -->
+        <div class="overlay overlay--cleared" id="clearedOverlay" hidden>
+          <h2>Map cleared</h2>
+          <p id="clearedLine"></p>
+          <div class="overlay__actions">
+            <button class="btn btn--primary" id="backToHubBtn">Return to Atlas</button>
+            <button class="btn btn--ghost" id="stayBtn">Keep wandering</button>
+          </div>
+        </div>
+
+        <div class="toastbox" id="toastbox" aria-live="polite"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Help modal -->
+  <div class="modal" id="helpModal" hidden>
+    <div class="modal__backdrop" data-modal-close tabindex="-1" aria-hidden="true"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle" tabindex="-1">
+      <header class="modal__header">
+        <h2 id="helpTitle">How to squint</h2>
+        <button type="button" class="btn btn--ghost btn--icon" data-modal-close aria-label="Close dialog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </header>
+      <div class="modal__body">
+        <ul class="help-list">
+          <li><strong>Move:</strong> click or hold the mouse, or use WASD / arrow keys</li>
+          <li><strong>Attack:</strong> automatic when an enemy is in range</li>
+          <li><strong>Skill:</strong> press Q or tap the skill button, costs mana</li>
+          <li><strong>Waypoints:</strong> touch one to unlock it, press T to teleport</li>
+          <li><strong>Dots:</strong> white normal, blue magic, yellow rare, orange boss</li>
+          <li><strong>Goal:</strong> find the boss, dodge the telegraph circles, clear the map, level up</li>
+          <li><strong>Death:</strong> costs 10% of your level XP, exactly as painful as it sounds</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="info-footer" id="siteFooter">
+    Part of <a class="footer-link" href="https://neorgon.com/">Neorgon</a>. A parody. Not affiliated with any ARPG you may be thinking of.
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

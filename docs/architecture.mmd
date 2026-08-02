@@ -1,0 +1,37 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#0f172a"
+    primaryTextColor: "#e2e8f0"
+    primaryBorderColor: "#0063e5"
+    lineColor: "#38bdf8"
+    secondaryColor: "#1e293b"
+    tertiaryColor: "#1e293b"
+    clusterBkg: "#f0f7ff"
+    clusterBorder: "#bfdbfe"
+    edgeLabelBackground: "#e8f0ff"
+    mainBkg: "#0f172a"
+    nodeBorder: "#0063e5"
+    titleColor: "#1e1b4b"
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif"
+    fontSize: "13px"
+---
+flowchart TB
+    User([Player]) --> HTML["index.html\nScreens: chargen · roster · atlas · game"]
+
+    subgraph App["ES Modules"]
+        HTML --> app["app.js\nEntry point + routing"]
+        app --> state["state.js\nRoster · XP curve · combat stats"]
+        app --> events["events.js\nMouse / WASD / Q / T / Esc"]
+        events --> game["game.js\nEngine: loop, combat, boss, death"]
+        game --> mapgen["mapgen.js\nSeeded dungeon gen + BFS paths"]
+        game --> render["render.js\nCanvas minimap: fog, dots, VFX"]
+        game --> hud["hud.js\nOrbs · XP bar · tracker · overlays"]
+        app --> hub["hub.js\nAtlas SVG node map"]
+        app --> chargen["chargen.js\nCharacter creator + roster"]
+        state --> defs["defs.js\nClasses · biomes · rarities · atlas graph"]
+    end
+
+    state <-->|"minimap-v1"| Storage[("localStorage")]
+    render --> Canvas[["gameCanvas + blurred bgCanvas"]]
