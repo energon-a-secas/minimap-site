@@ -7,32 +7,59 @@ export const CLASSES = {
     id: 'druid', name: 'Druid', icon: '🜃',
     blurb: 'Hits things with the forest. Short reach, heavy paws.',
     dmgMult: 1.25, lifeMult: 1.2, range: 2.0, atkCd: 1.05, cleave: 1.4,
-    skill: {
-      name: 'Entangling Burst', key: 'burst', radius: 4.2, dmgMult: 3.0,
-      snare: 2.0, mana: 60, cd: 5, desc: 'Roots and shreds everything around you.',
-    },
+    skills: [
+      { id: 'burst', name: 'Entangling Burst', icon: '🜃', kb: 'Q', type: 'burst',
+        radius: 4.2, dmgMult: 3.0, snare: 2.0, mana: 60, cd: 5,
+        desc: 'Roots and shreds everything around you.' },
+      { id: 'vinepatch', name: 'Vine Patch', icon: '✿', kb: 'E', type: 'zoneCircle',
+        radius: 2.8, dmgMult: 0.8, tick: 0.5, dur: 2.6, mana: 55, cd: 8,
+        desc: 'Grows a patch of grabbing vines that holds and shreds for a few seconds.' },
+      { id: 'vinewall', name: 'Vine Row', icon: '∿', kb: 'R', type: 'zoneLine',
+        length: 8, width: 1.4, dmgMult: 0.7, tick: 0.5, dur: 2.8, mana: 85, cd: 12,
+        desc: 'A row of green vines along your aim that stays and snares.' },
+    ],
     vfx: 'thorn', color: '#7dbb5e',
   },
   archer: {
     id: 'archer', name: 'Archer', icon: '➵',
     blurb: 'Deletes dots from a polite distance.',
     dmgMult: 0.9, lifeMult: 1.0, range: 7.5, atkCd: 0.7, cleave: 0,
-    skill: {
-      name: 'Piercing Shot', key: 'pierce', length: 10, width: 1.1, dmgMult: 2.6,
-      mana: 45, cd: 4, desc: 'One arrow, every dot in the line.',
-    },
+    skills: [
+      { id: 'pierce', name: 'Piercing Shot', icon: '➵', kb: 'Q', type: 'pierce',
+        length: 10, width: 1.1, dmgMult: 2.6, mana: 45, cd: 4,
+        desc: 'One arrow, every dot in the line.' },
+      { id: 'overcharge', name: 'Overcharge', icon: '⋔', kb: 'E', type: 'buff',
+        buff: 'overcharge', dur: 6, extraTargets: 2, mana: 45, cd: 9,
+        desc: 'Extra charged arrows: each shot also strikes 2 nearby dots for 6s.' },
+      { id: 'chargedshot', name: 'Charged Shot', icon: '➹', kb: 'R', type: 'charged',
+        channel: 0.8, length: 12, width: 1.5, dmgMult: 6.0, mana: 80, cd: 14,
+        desc: 'Plant your feet, draw deep, and delete a whole lane.' },
+    ],
     vfx: 'arrow', color: '#d8c06a',
   },
   mage: {
     id: 'mage', name: 'Mage', icon: '❄',
     blurb: 'Freezes the map. Squishy but dramatic.',
     dmgMult: 1.05, lifeMult: 0.85, range: 5.5, atkCd: 0.85, cleave: 0.9,
-    skill: {
-      name: 'Frost Nova', key: 'nova', radius: 3.8, dmgMult: 2.2,
-      slow: 0.45, slowDur: 3.0, mana: 70, cd: 4.5, desc: 'A ring of cold that slows the swarm.',
-    },
+    skills: [
+      { id: 'nova', name: 'Frost Nova', icon: '❄', kb: 'Q', type: 'nova',
+        radius: 3.8, dmgMult: 2.2, slow: 0.45, slowDur: 3.0, mana: 70, cd: 4.5,
+        desc: 'A ring of cold that slows the swarm.' },
+      { id: 'surge', name: 'Arcane Surge', icon: '✦', kb: 'E', type: 'buff',
+        buff: 'surge', dur: 4, atkSpeed: 1.4, moveSpeed: 1.25, mana: 50, cd: 10,
+        desc: 'Boost: cast and move faster for 4s.' },
+      { id: 'comet', name: 'Comet', icon: '☄', kb: 'R', type: 'comet',
+        radius: 3.0, dmgMult: 4.0, delay: 0.9, range: 8, mana: 90, cd: 12,
+        desc: 'Call something heavy down on the thickest cluster.' },
+    ],
     vfx: 'frost', color: '#7fd4f0',
   },
+};
+
+/** Movement abilities shared by every class. */
+export const MOVES = {
+  roll: { dist: 3.2, dur: 0.3, cd: 1.6 },              // Space: dash with i-frames, passes through enemies
+  sprint: { speedMult: 1.55, stun: 2.5, grace: 1.2 },  // Shift: fast, but a hit while sprinting stuns you
 };
 
 export const BODY = {

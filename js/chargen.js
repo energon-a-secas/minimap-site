@@ -32,7 +32,7 @@ function renderClassPicker() {
       <span class="class-card__icon" style="color:${cls.color}">${cls.icon}</span>
       <span class="class-card__name">${cls.name}</span>
       <span class="class-card__blurb">${escHtml(cls.blurb)}</span>
-      <span class="class-card__skill">${escHtml(cls.skill.name)}: ${escHtml(cls.skill.desc)}</span>`;
+      <span class="class-card__skill">${cls.skills.map((s) => escHtml(s.name)).join(' · ')}</span>`;
     box.appendChild(btn);
   }
 }

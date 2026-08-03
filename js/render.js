@@ -69,8 +69,10 @@ export function drawFrame(run) {
 
   drawFloorFill(ctx, run);
   drawWalls(ctx, run, biome);
-  drawWaypoints(ctx, run, biome);
+  drawWaypoints(ctx, run);
   drawTarget(ctx, run);
+  drawZones(ctx, run);
+  drawImpacts(ctx, run);
   drawTelegraphs(ctx, run);
   drawEnemies(ctx, run);
   drawVfx(ctx, run);
@@ -109,23 +111,108 @@ function drawWalls(ctx, run, biome) {
   ctx.stroke();
 }
 
-function drawWaypoints(ctx, run, biome) {
+/** Waypoints are totems: green for the entrance, blue for midpoints. */
+function drawWaypoints(ctx, run) {
   const pulse = 0.75 + 0.25 * Math.sin(run.time * 3);
   for (const wp of run.map.waypoints) {
     const idx = (wp.y | 0) * run.map.w + (wp.x | 0);
     if (!run.seen[idx]) continue;
     const unlocked = run.wpUnlocked.includes(wp.id);
+    const color = wp.id === 'wp0' ? '#4ade80' : '#38bdf8';
+    const a = unlocked ? 0.95 : 0.35 + 0.25 * pulse;
     ctx.save();
     ctx.translate(wp.x, wp.y);
-    ctx.rotate(Math.PI / 4);
-    ctx.strokeStyle = unlocked ? hexA(biome.wpColor, 0.95) : hexA(biome.wpColor, 0.45 * pulse + 0.2);
-    ctx.lineWidth = 0.14;
-    ctx.strokeRect(-0.55, -0.55, 1.1, 1.1);
+    // pole
+    ctx.strokeStyle = hexA(color, a);
+    ctx.lineWidth = 0.22;
+    ctx.beginPath();
+    ctx.moveTo(0, 0.85);
+    ctx.lineTo(0, -0.95);
+    ctx.stroke();
+    // crossbars, wider at the bottom like a proper totem
+    ctx.lineWidth = 0.16;
+    for (const [y, w] of [[-0.75, 0.42], [-0.3, 0.55], [0.2, 0.68]]) {
+      ctx.beginPath();
+      ctx.moveTo(-w, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    // head
+    ctx.fillStyle = hexA(color, a);
+    ctx.beginPath();
+    ctx.arc(0, -1.1, 0.22, 0, Math.PI * 2);
+    ctx.fill();
     if (unlocked) {
-      ctx.strokeStyle = hexA(biome.wpColor, 0.35 * pulse);
-      ctx.strokeRect(-0.95, -0.95, 1.9, 1.9);
+      ctx.strokeStyle = hexA(color, 0.3 * pulse);
+      ctx.lineWidth = 0.1;
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.35, 0, Math.PI * 2);
+      ctx.stroke();
     }
     ctx.restore();
+  }
+}
+
+/** Druid vine zones: translucent green with writhing strands. */
+function drawZones(ctx, run) {
+  for (const z of run.zones) {
+    const wobble = Math.sin(run.time * 7) * 0.06;
+    ctx.fillStyle = 'rgba(125,187,94,0.16)';
+    ctx.strokeStyle = 'rgba(143,217,106,0.75)';
+    ctx.lineWidth = 0.1;
+    if (z.shape === 'circle') {
+      ctx.beginPath();
+      ctx.arc(z.x, z.y, z.r + wobble, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      for (let i = 0; i < 7; i++) {
+        const ang = (i / 7) * Math.PI * 2 + run.time * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(z.x + Math.cos(ang) * z.r * 0.35, z.y + Math.sin(ang) * z.r * 0.35);
+        ctx.lineTo(z.x + Math.cos(ang) * (z.r * 0.85 + wobble), z.y + Math.sin(ang) * (z.r * 0.85 + wobble));
+        ctx.stroke();
+      }
+    } else {
+      const dx = z.x2 - z.x1, dy = z.y2 - z.y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len;
+      ctx.beginPath();
+      ctx.moveTo(z.x1 + nx * z.width, z.y1 + ny * z.width);
+      ctx.lineTo(z.x2 + nx * z.width, z.y2 + ny * z.width);
+      ctx.lineTo(z.x2 - nx * z.width, z.y2 - ny * z.width);
+      ctx.lineTo(z.x1 - nx * z.width, z.y1 - ny * z.width);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      for (let i = 0; i <= 8; i++) {
+        const t = i / 8;
+        const px = z.x1 + dx * t, py = z.y1 + dy * t;
+        const s = (i % 2 ? 1 : -1) * (z.width * 0.8 + wobble);
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + nx * s, py + ny * s);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+/** Incoming friendly comets: blue telegraph with a timer ring. */
+function drawImpacts(ctx, run) {
+  for (const im of run.impacts) {
+    if (im.fired) continue;
+    const k = im.t / im.dur;
+    ctx.fillStyle = `rgba(127,212,240,${0.08 + k * 0.2})`;
+    ctx.beginPath();
+    ctx.arc(im.x, im.y, im.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(159,224,247,0.85)';
+    ctx.lineWidth = 0.1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(im.x, im.y, im.r, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.stroke();
   }
 }
 
@@ -188,6 +275,37 @@ function drawPlayer(ctx, run) {
   const p = run.player;
   ctx.save();
   ctx.translate(p.x, p.y);
+  // stunned: spinning dazed arcs
+  if (p.stunT > 0) {
+    ctx.strokeStyle = 'rgba(255,210,62,0.9)';
+    ctx.lineWidth = 0.12;
+    for (let i = 0; i < 3; i++) {
+      const a0 = run.time * 5 + (i * Math.PI * 2) / 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.05, a0, a0 + 0.9);
+      ctx.stroke();
+    }
+  }
+  // channeling: draw ring closing in
+  if (p.channelT > 0 && p.channelSkill) {
+    const k = 1 - p.channelT / p.channelSkill.channel;
+    ctx.strokeStyle = 'rgba(255,242,176,0.9)';
+    ctx.lineWidth = 0.1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1.4 - k * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // sprinting: motion ticks behind
+  if (p.sprint) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 0.09;
+    for (const s of [0.7, 1.0, 1.3]) {
+      ctx.beginPath();
+      ctx.moveTo(-p.aim.x * s - p.aim.y * 0.2, -p.aim.y * s + p.aim.x * 0.2);
+      ctx.lineTo(-p.aim.x * (s + 0.3) + p.aim.y * 0.2, -p.aim.y * (s + 0.3) - p.aim.x * 0.2);
+      ctx.stroke();
+    }
+  }
   // the big red dot
   ctx.fillStyle = '#e33b25';
   ctx.beginPath();
@@ -223,6 +341,13 @@ const VFX_DRAW = {
     ctx.fill();
   },
   hurt(ctx, v, k) { ring(ctx, v.x, v.y, 0.7 + k * 0.5, `rgba(227,59,37,${0.8 * (1 - k)})`, 0.14); },
+  rollStreak(ctx, v, k) { beam(ctx, v, k, 'rgba(255,255,255,0.8)', 0.24); },
+  cometSlam(ctx, v, k) {
+    ctx.fillStyle = `rgba(159,224,247,${0.55 * (1 - k)})`;
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, v.radius * (0.8 + k * 0.3), 0, Math.PI * 2);
+    ctx.fill();
+  },
   pop(ctx, v, k) {
     const rng = mulberry32(((v.x * 73 + v.y * 179) * 1000) | 0);
     for (let i = 0; i < 6; i++) {

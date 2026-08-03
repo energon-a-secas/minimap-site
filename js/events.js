@@ -4,10 +4,10 @@
 
 import { $, setScreen } from './utils.js';
 import { state, save, createCharacter, defaultCharacter, deleteCharacter } from './state.js';
-import { startRun, stopRun, useSkill, respawn, teleportTo, setMoveTarget } from './game.js';
+import { startRun, stopRun, useSkill, respawn, teleportTo, setMoveTarget, startRoll, setSprint } from './game.js';
 import { renderHub, selectNode } from './hub.js';
 import { renderChargen, renderRoster, setDraftClass, setDraftOption, draft } from './chargen.js';
-import { renderWaypointPanel, toggleWaypointPanel, hideCleared } from './hud.js';
+import { renderWaypointPanel, toggleWaypointPanel, hideCleared, showLeaveConfirm, hideLeaveConfirm, leaveConfirmOpen } from './hud.js';
 import { resizeCanvases, paintBackdrop, screenToWorld } from './render.js';
 
 // ── Screen routing ───────────────────────────────────────────
@@ -139,8 +139,14 @@ function bindGameInput() {
   });
   canvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    useSkill();
+    useSkill(0);
   });
+
+  const askLeave = () => { toggleWaypointPanel(false); showLeaveConfirm(); };
+  const openWpPanel = () => {
+    const run = state.run;
+    if (run && toggleWaypointPanel()) renderWaypointPanel(run, teleportTo, askLeave);
+  };
 
   document.addEventListener('keydown', (e) => {
     // modal escape always wins
@@ -149,7 +155,7 @@ function bindGameInput() {
       if (e.key === 'Escape') { e.preventDefault(); closeModal(modal.id); }
       return;
     }
-    if (state.screenIsTyping || e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT') return;
     const run = state.run;
     if (!run || document.body.dataset.screen !== 'game') return;
     const key = e.key.toLowerCase();
@@ -158,30 +164,41 @@ function bindGameInput() {
       e.preventDefault();
       return;
     }
-    if (key === 'q') { useSkill(); return; }
-    if (key === 't') {
-      if (toggleWaypointPanel()) renderWaypointPanel(run, teleportTo, leaveToHub);
-      return;
-    }
+    if (key === 'shift') { setSprint(true); return; }
+    if (key === ' ') { e.preventDefault(); startRoll(); return; }
+    if (key === 'q') { useSkill(0); return; }
+    if (key === 'e') { useSkill(1); return; }
+    if (key === 'r') { useSkill(2); return; }
+    if (key === 't') { openWpPanel(); return; }
     if (key === 'escape') {
-      if (!toggleWaypointPanel(false)) leaveToHub();
+      if (leaveConfirmOpen()) hideLeaveConfirm();
+      else if (!toggleWaypointPanel(false)) askLeave();
     }
   });
   document.addEventListener('keyup', (e) => {
     const run = state.run;
     if (!run) return;
     const key = e.key.toLowerCase();
+    if (key === 'shift') setSprint(false);
     if (MOVE_KEYS.includes(key)) delete run.input.keys[key];
   });
 
-  // HUD buttons
-  $('skillBtn').addEventListener('click', useSkill);
-  $('waypointBtn').addEventListener('click', () => {
+  // HUD skill bar (built per run by hud.js)
+  $('skillbar').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.slot !== undefined) { useSkill(Number(btn.dataset.slot)); return; }
     const run = state.run;
-    if (run && toggleWaypointPanel()) renderWaypointPanel(run, teleportTo, leaveToHub);
+    switch (btn.dataset.action) {
+      case 'roll': startRoll(); break;
+      case 'sprint': if (run) setSprint(!run.player.sprint); break;
+      case 'wp': openWpPanel(); break;
+      case 'leave': askLeave(); break;
+    }
   });
   $('wpClose').addEventListener('click', () => toggleWaypointPanel(false));
-  $('leaveBtn').addEventListener('click', leaveToHub);
+  $('confirmLeaveBtn').addEventListener('click', () => { hideLeaveConfirm(); leaveToHub(); });
+  $('cancelLeaveBtn').addEventListener('click', hideLeaveConfirm);
   $('respawnBtn').addEventListener('click', respawn);
   $('backToHubBtn').addEventListener('click', () => { hideCleared(); leaveToHub(); });
   $('stayBtn').addEventListener('click', () => {

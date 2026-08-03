@@ -5,7 +5,7 @@
 
 import { $, escHtml, fmtNum, showToast } from './utils.js';
 import { xpForLevel, LEVEL_CAP } from './state.js';
-import { CLASSES } from './defs.js';
+import { CLASSES, MOVES } from './defs.js';
 
 const cache = {};
 
@@ -27,13 +27,49 @@ export function initHudForRun(run) {
   $('trkMonsterLevel').textContent = `Monster Level: ${run.map.monsterLevel}`;
   $('trkQuestTitle').textContent = run.map.quest.title;
   $('trkQuestBody').textContent = `${run.map.quest.body} Then defeat ${run.map.bossName}.`;
-  $('skillIcon').textContent = cls.icon;
-  $('skillBtn').title = `${cls.skill.name} (Q): ${cls.skill.desc} Costs ${cls.skill.mana} mana.`;
+  buildSkillbar(cls);
   $('bossName').textContent = run.map.bossName;
   $('bossBar').hidden = true;
   $('wpPanel').hidden = true;
   $('deathOverlay').hidden = true;
   $('clearedOverlay').hidden = true;
+  $('leaveConfirm').hidden = true;
+}
+
+/** Rebuild the skill bar for the active class: Q/E/R + roll/sprint/utility. */
+function buildSkillbar(cls) {
+  const bar = $('skillbar');
+  const parts = [];
+  cls.skills.forEach((sk, i) => {
+    parts.push(`
+      <button class="skill" data-slot="${i}" aria-label="${escHtml(sk.name)} (${sk.kb})"
+              title="${escHtml(sk.name)} (${sk.kb}): ${escHtml(sk.desc)} Costs ${sk.mana} mana, ${sk.cd}s cooldown.">
+        <span class="skill__icon">${sk.icon}</span>
+        <span class="skill__cd" id="skillCd${i}"></span>
+        <span class="skill__key">${sk.kb}</span>
+      </button>`);
+  });
+  parts.push(`
+      <button class="skill skill--move" data-action="roll" aria-label="Dodge roll (Space)"
+              title="Dodge roll (Space): dash through enemies with brief immunity.">
+        <span class="skill__icon">↷</span>
+        <span class="skill__cd" id="rollCdEl"></span>
+        <span class="skill__key">Spc</span>
+      </button>
+      <button class="skill skill--move" data-action="sprint" id="sprintBtn" aria-label="Sprint (hold Shift)"
+              title="Sprint (hold Shift): move much faster, but a hit while sprinting stuns you.">
+        <span class="skill__icon">⇶</span>
+        <span class="skill__key">Shf</span>
+      </button>
+      <button class="skill skill--util" data-action="wp" aria-label="Waypoints (T)" title="Waypoints (T)">
+        <span class="skill__icon">◈</span>
+        <span class="skill__key">T</span>
+      </button>
+      <button class="skill skill--util" data-action="leave" aria-label="Leave map (Esc)" title="Leave map (Esc)">
+        <span class="skill__icon">⏏</span>
+        <span class="skill__key">Esc</span>
+      </button>`);
+  bar.innerHTML = parts.join('');
 }
 
 export function updateHud(run) {
@@ -52,10 +88,30 @@ export function updateHud(run) {
   set('xpLabel', 'text', char.level >= LEVEL_CAP
     ? 'Level 100. You are free now.'
     : `Level ${char.level}  ·  ${fmtNum(char.xp)} / ${fmtNum(need)} XP (${pct.toFixed(1)}%)`);
-  set('charLine', 'text', `${char.name}, level ${char.level} ${CLASSES[char.cls].name}`);
+  set('charLine', 'text', p.stunT > 0
+    ? 'STUNNED. This is what sprinting gets you.'
+    : `${char.name}, level ${char.level} ${CLASSES[char.cls].name}`);
 
-  const cdFrac = Math.max(0, p.skillCd) / run.cls.skill.cd;
-  set('skillCd', 'height', Math.round(cdFrac * 100) + '%');
+  // skill cooldowns + a flash when one comes back up
+  run.cls.skills.forEach((sk, i) => {
+    const frac = Math.max(0, p.cds[i]) / sk.cd;
+    set('skillCd' + i, 'height', Math.round(frac * 100) + '%');
+    const wasCooling = cache['cdstate:' + i];
+    const cooling = p.cds[i] > 0;
+    cache['cdstate:' + i] = cooling;
+    const btn = document.querySelector(`#skillbar [data-slot="${i}"]`);
+    if (btn) {
+      if (wasCooling && !cooling) {
+        btn.classList.add('skill--flash');
+        setTimeout(() => btn.classList.remove('skill--flash'), 500);
+      }
+      btn.classList.toggle('skill--buffed', Boolean(sk.buff && p.buffs[sk.buff] > 0));
+    }
+  });
+  const rollFrac = Math.max(0, p.rollCd) / MOVES.roll.cd;
+  set('rollCdEl', 'height', Math.round(rollFrac * 100) + '%');
+  const sprintBtn = $('sprintBtn');
+  if (sprintBtn) sprintBtn.classList.toggle('skill--active', p.sprint);
 
   const b = run.boss;
   const showBoss = run.bossShown && b && !b.dead;
@@ -113,6 +169,18 @@ export function showCleared(run, freshCount) {
 
 export function hideCleared() {
   $('clearedOverlay').hidden = true;
+}
+
+export function showLeaveConfirm() {
+  $('leaveConfirm').hidden = false;
+}
+
+export function hideLeaveConfirm() {
+  $('leaveConfirm').hidden = true;
+}
+
+export function leaveConfirmOpen() {
+  return !$('leaveConfirm').hidden;
 }
 
 export function toastXp(msg) {

@@ -4,11 +4,13 @@
 // DOM overlay is hud.js.
 
 import { state, save, activeChar, charStats, enemyStats, gainXp, applyDeathPenalty, monsterXp, clearNode } from './state.js';
-import { CLASSES, RARITY, atlasNode, DEATH_LINES } from './defs.js';
+import { CLASSES, RARITY, MOVES, atlasNode, DEATH_LINES } from './defs.js';
 import { generateMap, canStand, findPath } from './mapgen.js';
-import { dist, clamp, distToSegment, pick, mulberry32 } from './utils.js';
+import { dist, clamp, pick, mulberry32 } from './utils.js';
 import { drawFrame, paintBackdrop, resizeCanvases } from './render.js';
 import { updateHud, initHudForRun, showDeath, hideDeath, showCleared, toastXp } from './hud.js';
+import { castSkill, updateSkills, wireSkills, effectiveAtkCd, moveSpeedMult, overchargeTargets } from './skills.js';
+import { updateBoss, wireBoss } from './boss.js';
 
 const AGGRO = 11;
 const CONTACT = 1.0;
@@ -31,9 +33,14 @@ export function startRun(nodeId) {
     player: {
       x: map.entrance.x, y: map.entrance.y,
       life: stats.maxLife, mana: stats.maxMana,
-      atkTimer: 0, skillCd: 0, aim: { x: 1, y: 0 },
+      atkTimer: 0, aim: { x: 1, y: 0 },
+      cds: [0, 0, 0], buffs: { surge: 0, overcharge: 0 },
+      channelT: 0, channelSkill: null,
+      rollT: 0, rollCd: 0, rollDir: null,
+      sprint: false, stunT: 0, stunGrace: 0,
     },
     enemies: buildEnemies(map),
+    zones: [], impacts: [],
     vfx: [],
     seen: new Uint8Array(map.w * map.h),
     wpUnlocked: ['wp0'],
@@ -103,9 +110,14 @@ function tick(t) {
 function advance(run, dt) {
   run.time += dt;
   if (!run.over) {
+    const p = run.player;
+    if (p.stunT > 0) p.stunT -= dt;
+    if (p.stunT <= 0 && p.stunGrace > 0) p.stunGrace -= dt;
+    if (p.rollCd > 0) p.rollCd -= dt;
     movePlayer(run, dt);
     updateEnemies(run, dt);
     updateCombat(run, dt);
+    updateSkills(run, dt);
     updateBoss(run, dt);
     regen(run, dt);
     checkWaypoints(run);
@@ -136,8 +148,38 @@ export function setMoveTarget(x, y) {
   run.input.path = findPath(run.map.grid, run.player.x, run.player.y, x, y);
 }
 
+/** True when moving to (x, y) would press into a living enemy.
+    Rolling ignores bodies; escaping an overlap is always allowed. */
+function blockedByEnemy(run, x, y, fromX, fromY) {
+  if (run.player.rollT > 0) return false;
+  for (const e of run.enemies) {
+    if (e.dead) continue;
+    const rr = e.isBoss ? 1.15 : 0.72;
+    const nd = dist(x, y, e.x, e.y);
+    if (nd < rr && nd < dist(fromX, fromY, e.x, e.y)) return true;
+  }
+  return false;
+}
+
+function stepPlayer(run, vx, vy, step) {
+  const p = run.player;
+  const nx = p.x + vx * step;
+  if (canStand(run.map.grid, nx, p.y, PLAYER_R) && !blockedByEnemy(run, nx, p.y, p.x, p.y)) p.x = nx;
+  const ny = p.y + vy * step;
+  if (canStand(run.map.grid, p.x, ny, PLAYER_R) && !blockedByEnemy(run, p.x, ny, p.x, p.y)) p.y = ny;
+}
+
 function movePlayer(run, dt) {
   const p = run.player;
+
+  // roll: fast dash, passes through enemies, i-frames
+  if (p.rollT > 0) {
+    p.rollT -= dt;
+    stepPlayer(run, p.rollDir.x, p.rollDir.y, (MOVES.roll.dist / MOVES.roll.dur) * dt);
+    return;
+  }
+  if (p.stunT > 0 || p.channelT > 0) return; // recovery or planted feet: no walking
+
   const { keys, mouse } = run.input;
   let vx = 0, vy = 0;
   if (keys.w || keys.arrowup) vy -= 1;
@@ -176,12 +218,30 @@ function movePlayer(run, dt) {
   const len = Math.hypot(vx, vy);
   vx /= len; vy /= len;
   p.aim = { x: vx, y: vy };
-  const step = run.stats.speed * dt;
-  // axis-separated so walls let you slide along them
-  const nx = p.x + vx * step;
-  if (canStand(run.map.grid, nx, p.y, PLAYER_R)) p.x = nx;
-  const ny = p.y + vy * step;
-  if (canStand(run.map.grid, p.x, ny, PLAYER_R)) p.y = ny;
+  let step = run.stats.speed * dt * moveSpeedMult(run);
+  if (p.sprint) step *= MOVES.sprint.speedMult;
+  stepPlayer(run, vx, vy, step);
+}
+
+/** Space: dodge roll in the current move/aim direction. */
+export function startRoll() {
+  const run = state.run;
+  if (!run || run.over) return;
+  const p = run.player;
+  if (p.rollT > 0 || p.rollCd > 0 || p.stunT > 0) return;
+  p.rollT = MOVES.roll.dur;
+  p.rollCd = MOVES.roll.cd;
+  p.rollDir = { x: p.aim.x, y: p.aim.y };
+  p.channelT = 0;
+  p.channelSkill = null;
+  run.vfx.push({ type: 'rollStreak', x1: p.x, y1: p.y, x2: p.x + p.aim.x * MOVES.roll.dist, y2: p.y + p.aim.y * MOVES.roll.dist, t: 0, dur: 0.3 });
+}
+
+/** Shift / HUD button: sprint on or off. */
+export function setSprint(on) {
+  const run = state.run;
+  if (!run) return;
+  run.player.sprint = on && run.player.stunT <= 0;
 }
 
 // ── Enemies ──────────────────────────────────────────────────
@@ -214,10 +274,21 @@ function updateEnemies(run, dt) {
 }
 
 function hitPlayer(run, dmg, e) {
+  const p = run.player;
+  if (p.rollT > 0) return; // i-frames: the roll is sacred
   e.hitCd = 0.9;
-  run.player.life -= dmg;
-  run.vfx.push({ type: 'hurt', x: run.player.x, y: run.player.y, t: 0, dur: 0.25 });
-  if (run.player.life <= 0) onDeath(run);
+  p.life -= dmg;
+  run.vfx.push({ type: 'hurt', x: p.x, y: p.y, t: 0, dur: 0.25 });
+  // caught sprinting: knocked into recovery, no moving for a bit
+  if (p.sprint && p.stunT <= 0 && p.stunGrace <= 0) {
+    p.stunT = MOVES.sprint.stun;
+    p.stunGrace = MOVES.sprint.stun + MOVES.sprint.grace;
+    p.sprint = false;
+    run.input.target = null;
+    run.input.path = null;
+    toastXp('Stunned! Caught sprinting.');
+  }
+  if (p.life <= 0) onDeath(run);
 }
 
 // ── Player combat ────────────────────────────────────────────
@@ -225,12 +296,11 @@ function hitPlayer(run, dmg, e) {
 function updateCombat(run, dt) {
   const p = run.player;
   if (p.atkTimer > 0) p.atkTimer -= dt;
-  if (p.skillCd > 0) p.skillCd -= dt;
-  if (p.atkTimer > 0) return;
+  if (p.atkTimer > 0 || p.rollT > 0) return;
 
   const target = nearestEnemy(run, run.cls.range);
   if (!target) return;
-  p.atkTimer = run.cls.atkCd;
+  p.atkTimer = effectiveAtkCd(run);
   const d = dist(p.x, p.y, target.x, target.y) || 1;
   p.aim = { x: (target.x - p.x) / d, y: (target.y - p.y) / d };
 
@@ -241,6 +311,19 @@ function updateCombat(run, dt) {
     for (const e of run.enemies) {
       if (e.dead || e === target) continue;
       if (dist(e.x, e.y, target.x, target.y) <= run.cls.cleave) damageEnemy(run, e, run.stats.dmg * 0.6);
+    }
+  }
+  // overcharged: extra arrows strike other dots in range
+  let extra = overchargeTargets(run);
+  if (extra > 0) {
+    for (const e of run.enemies) {
+      if (extra <= 0) break;
+      if (e.dead || e === target) continue;
+      if (dist(p.x, p.y, e.x, e.y) <= run.cls.range) {
+        damageEnemy(run, e, run.stats.dmg * 0.7);
+        pushAttackVfx(run, e);
+        extra--;
+      }
     }
   }
 }
@@ -262,37 +345,14 @@ function pushAttackVfx(run, target) {
   run.vfx.push({ type: kind, x1: p.x, y1: p.y, x2: target.x, y2: target.y, t: 0, dur: kind === 'arrow' ? 0.18 : 0.28 });
 }
 
-export function useSkill() {
+export function useSkill(slot = 0) {
   const run = state.run;
-  if (!run || run.over) return;
-  const p = run.player;
-  const sk = run.cls.skill;
-  if (p.skillCd > 0 || p.mana < sk.mana) return;
-  p.mana -= sk.mana;
-  p.skillCd = sk.cd;
-
-  if (sk.key === 'burst' || sk.key === 'nova') {
-    run.vfx.push({ type: sk.key === 'burst' ? 'burstRing' : 'novaRing', x: p.x, y: p.y, radius: sk.radius, t: 0, dur: 0.5 });
-    for (const e of run.enemies) {
-      if (e.dead) continue;
-      if (dist(p.x, p.y, e.x, e.y) <= sk.radius) {
-        damageEnemy(run, e, run.stats.dmg * sk.dmgMult);
-        if (sk.snare) e.snareT = sk.snare;
-        if (sk.slow) { e.slowT = sk.slowDur; e.slowAmt = sk.slow; }
-      }
-    }
-  } else if (sk.key === 'pierce') {
-    const a = p.aim;
-    const x2 = p.x + a.x * sk.length, y2 = p.y + a.y * sk.length;
-    run.vfx.push({ type: 'pierceLine', x1: p.x, y1: p.y, x2, y2, t: 0, dur: 0.35 });
-    for (const e of run.enemies) {
-      if (e.dead) continue;
-      if (distToSegment(e.x, e.y, p.x, p.y, x2, y2) <= sk.width) {
-        damageEnemy(run, e, run.stats.dmg * sk.dmgMult);
-      }
-    }
-  }
+  if (!run) return;
+  castSkill(run, slot);
 }
+
+wireSkills(damageEnemy);
+wireBoss({ hitPlayer, makeEnemy });
 
 function damageEnemy(run, e, amount) {
   if (e.dead) return;
@@ -322,60 +382,7 @@ function onLevelUp(run, ups) {
   save(state);
 }
 
-// ── Boss ─────────────────────────────────────────────────────
-
-function updateBoss(run, dt) {
-  const b = run.boss;
-  if (!b || b.dead) return;
-  const p = run.player;
-  const d = dist(b.x, b.y, p.x, p.y);
-
-  if (!run.bossShown && d < 14) run.bossShown = true;
-  if (!run.bossShown) return;
-
-  // adds at 66% / 33%
-  const frac = b.hp / b.maxHp;
-  if (frac < 0.66 && !b.adds.t66) { b.adds.t66 = true; spawnAdds(run, b, 5); }
-  if (frac < 0.33 && !b.adds.t33) { b.adds.t33 = true; spawnAdds(run, b, 6); }
-
-  // telegraphed slams
-  if (d < 15) {
-    b.slamTimer -= dt;
-    if (b.slamTimer <= 0) {
-      b.slamTimer = Math.max(2.4, 4.2 - run.tier * 0.15);
-      const n = 1 + (b.adds.t66 ? 1 : 0) + (b.adds.t33 ? 1 : 0);
-      for (let i = 0; i < n; i++) {
-        b.telegraphs.push({
-          x: i === 0 ? p.x : p.x + (Math.random() - 0.5) * 6,
-          y: i === 0 ? p.y : p.y + (Math.random() - 0.5) * 6,
-          r: 2.6, t: 0, dur: 1.15,
-        });
-      }
-    }
-  }
-  for (const tg of b.telegraphs) {
-    tg.t += dt;
-    if (tg.t >= tg.dur && !tg.fired) {
-      tg.fired = true;
-      run.vfx.push({ type: 'slam', x: tg.x, y: tg.y, radius: tg.r, t: 0, dur: 0.35 });
-      if (dist(p.x, p.y, tg.x, tg.y) <= tg.r) hitPlayer(run, b.dmg * 2.2, { hitCd: 0 });
-    }
-  }
-  b.telegraphs = b.telegraphs.filter((tg) => tg.t < tg.dur + 0.1);
-}
-
-function spawnAdds(run, b, n) {
-  const rng = mulberry32((run.map.seed ^ (n * 7919)) >>> 0);
-  for (let i = 0; i < n; i++) {
-    const ang = (i / n) * Math.PI * 2;
-    const x = b.x + Math.cos(ang) * (2 + rng() * 2);
-    const y = b.y + Math.sin(ang) * (2 + rng() * 2);
-    if (canStand(run.map.grid, x, y, 0.35)) {
-      run.enemies.push(makeEnemy(run.map, x, y, 'normal', null));
-    }
-  }
-  toastXp(`${run.map.bossName} calls for backup.`);
-}
+// ── Boss (fight logic lives in boss.js) ──────────────────────
 
 function onBossKill(run) {
   run.cleared = true;
@@ -407,7 +414,15 @@ export function respawn() {
   p.mana = run.stats.maxMana;
   p.x = run.map.entrance.x;
   p.y = run.map.entrance.y;
+  p.cds = [0, 0, 0];
+  p.buffs = { surge: 0, overcharge: 0 };
+  p.channelT = 0; p.channelSkill = null;
+  p.rollT = 0; p.rollCd = 0;
+  p.sprint = false; p.stunT = 0; p.stunGrace = 0;
   run.input.target = null;
+  run.input.path = null;
+  run.zones = [];
+  run.impacts = [];
   run.over = null;
   for (const e of run.enemies) { if (!e.dead) { e.hitCd = 0.5; } }
   if (run.boss) run.boss.telegraphs = [];

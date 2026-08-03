@@ -180,21 +180,7 @@
 
           <div class="hud__center">
             <div class="charline" id="charLine"></div>
-            <div class="skillbar">
-              <button class="skill" id="skillBtn" aria-label="Class skill (Q)">
-                <span class="skill__icon" id="skillIcon"></span>
-                <span class="skill__cd" id="skillCd"></span>
-                <span class="skill__key">Q</span>
-              </button>
-              <button class="skill skill--util" id="waypointBtn" aria-label="Waypoints (T)">
-                <span class="skill__icon">◈</span>
-                <span class="skill__key">T</span>
-              </button>
-              <button class="skill skill--util" id="leaveBtn" aria-label="Leave map (Esc)">
-                <span class="skill__icon">⏏</span>
-                <span class="skill__key">Esc</span>
-              </button>
-            </div>
+            <div class="skillbar" id="skillbar"></div>
             <div class="xpbar" title="Experience">
               <div class="xpbar__fill" id="xpFill"></div>
               <div class="xpbar__label" id="xpLabel"></div>
@@ -212,6 +198,16 @@
           <h3>Waypoints</h3>
           <div class="wp-panel__list" id="wpList"></div>
           <button class="btn btn--ghost btn--sm" id="wpClose">Close</button>
+        </div>
+
+        <!-- Leave confirmation -->
+        <div class="overlay overlay--confirm" id="leaveConfirm" hidden>
+          <h2>Leave the map?</h2>
+          <p>The layout and every remaining monster are lost. The Atlas does not do refunds.</p>
+          <div class="overlay__actions">
+            <button class="btn btn--primary" id="confirmLeaveBtn">Leave map</button>
+            <button class="btn btn--ghost" id="cancelLeaveBtn">Keep fighting</button>
+          </div>
         </div>
 
         <!-- Death overlay -->
@@ -250,10 +246,12 @@
       </header>
       <div class="modal__body">
         <ul class="help-list">
-          <li><strong>Move:</strong> click or hold the mouse, or use WASD / arrow keys</li>
+          <li><strong>Move:</strong> click or hold the mouse, or use WASD / arrow keys. Enemies body-block you.</li>
+          <li><strong>Roll:</strong> Space. A quick dash that passes through enemies with brief immunity.</li>
+          <li><strong>Sprint:</strong> hold Shift. Much faster, but one hit while sprinting stuns you for 2.5s.</li>
           <li><strong>Attack:</strong> automatic when an enemy is in range</li>
-          <li><strong>Skill:</strong> press Q or tap the skill button, costs mana</li>
-          <li><strong>Waypoints:</strong> touch one to unlock it, press T to teleport</li>
+          <li><strong>Skills:</strong> Q, E, R. Three per class; the big one has the long cooldown.</li>
+          <li><strong>Waypoints:</strong> touch a totem to unlock it (green entry, blue midpoint), press T to teleport</li>
           <li><strong>Dots:</strong> white normal, blue magic, yellow rare, orange boss</li>
           <li><strong>Goal:</strong> find the boss, dodge the telegraph circles, clear the map, level up</li>
           <li><strong>Death:</strong> costs 10% of your level XP, exactly as painful as it sounds</li>

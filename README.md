@@ -42,12 +42,13 @@ Pick a druid, archer, or mage, walk into procedurally generated dungeons across 
 
 - **Minimap-only rendering** -- fog-of-war wall outlines, waypoint diamonds, and enemy dots over a blurred biome backdrop
 - **Procedural maps** -- seeded rooms-and-corridors generator, different parameters per biome, layouts reroll every run
-- **Three classes** -- Druid (Entangling Burst), Archer (Piercing Shot), Mage (Frost Nova), each with distinct combat VFX
-- **Click or keys** -- BFS pathfinding for click-to-move, WASD and arrows for manual steering, Q for the class skill
+- **Three classes, three skills each** -- Druid (burst + vine zones), Archer (pierce, overcharge, charged shot), Mage (nova, surge, comet) on Q / E / R
+- **Click or keys** -- BFS pathfinding for click-to-move, WASD and arrows for manual steering
+- **Bodies matter** -- enemies block your path; dodge roll (Space) dashes through with i-frames, sprint (Shift) is fast but one hit while sprinting stuns you
 - **Rarity dots** -- white normal, blue magic, yellow rare, orange boss, with fast / tanky / deadly modifiers
 - **Boss fights** -- health bar with a parody name, telegraphed AoE circles, adds at 66% and 33%
 - **Atlas of Worms** -- 24 map nodes across 8 tiers; clearing a boss unlocks connected nodes
-- **Waypoints** -- touch to unlock, press T to teleport within a map or leave to the atlas
+- **Waypoints** -- totems (green entry, blue midpoint); touch to unlock, press T to teleport, leaving asks first
 - **The grind** -- level 80 to 100 on a steepening XP curve, with a 10% XP death penalty and an over-leveling XP falloff
 - **Character creator** -- class, sex, height, build, and hair options with a silhouette placeholder, plus a skip button
 - **Local roster** -- multiple characters with independent atlas progress, saved in your browser
@@ -83,7 +84,9 @@ minimap-site/
 │   ├── defs.js           # Classes, body options, biomes, rarities, atlas graph
 │   ├── utils.js          # Seeded RNG, math helpers, screen switching, toasts
 │   ├── mapgen.js         # Procedural dungeon generator + BFS pathfinding
-│   ├── game.js           # Engine: rAF loop, movement, combat, boss, death, waypoints
+│   ├── game.js           # Engine: rAF loop, movement, roll/sprint, combat, death, waypoints
+│   ├── skills.js         # Q/E/R casting, buffs, vine zones, comet impacts
+│   ├── boss.js           # Boss activation, telegraphed slams, add waves
 │   ├── render.js         # Canvas: fog-of-war lines, dots, VFX, blurred backdrop
 │   ├── hud.js            # DOM overlay: orbs, XP bar, tracker, boss bar, panels
 │   ├── hub.js            # Atlas screen (SVG node map)

@@ -1006,22 +1006,39 @@ body[data-screen="game"] { overflow: hidden; height: 100dvh; }
   color: var(--mm-gold);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
-.skillbar { display: flex; gap: var(--space-2); pointer-events: auto; }
+.skillbar { display: flex; gap: var(--space-2); pointer-events: auto; align-items: flex-end; }
 .skill {
   position: relative;
-  width: 52px;
-  height: 52px;
+  width: 66px;
+  height: 66px;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(200, 170, 110, 0.45);
   background: rgba(10, 8, 14, 0.85);
   color: #f4ead2;
-  font-size: 1.3rem;
+  font-size: 1.8rem;
   cursor: pointer;
   overflow: hidden;
   transition: border-color var(--dur), box-shadow var(--dur);
 }
 .skill:hover { border-color: var(--mm-gold); box-shadow: 0 0 12px rgba(200, 170, 110, 0.25); }
-.skill--util { font-size: 1rem; color: var(--text-secondary); }
+.skill--move { width: 54px; height: 54px; font-size: 1.3rem; border-color: rgba(125, 211, 252, 0.4); }
+.skill--move:hover { border-color: var(--mm-accent); box-shadow: 0 0 12px rgba(125, 211, 252, 0.25); }
+.skill--util { width: 46px; height: 46px; font-size: 0.95rem; color: var(--text-secondary); }
+.skill--active {
+  border-color: var(--mm-accent);
+  box-shadow: 0 0 14px rgba(125, 211, 252, 0.5);
+  background: rgba(125, 211, 252, 0.14);
+}
+.skill--buffed {
+  border-color: #e8c06a;
+  box-shadow: 0 0 14px rgba(232, 192, 106, 0.5);
+}
+@keyframes skillReady {
+  0% { box-shadow: 0 0 0 rgba(255, 242, 176, 0); }
+  40% { box-shadow: 0 0 22px rgba(255, 242, 176, 0.95); border-color: #fff2b0; }
+  100% { box-shadow: 0 0 0 rgba(255, 242, 176, 0); }
+}
+.skill--flash { animation: skillReady 0.5s ease-out; }
 .skill__icon { position: relative; z-index: 1; }
 .skill__cd {
   position: absolute;
@@ -1135,6 +1152,8 @@ body[data-screen="game"] { overflow: hidden; height: 100dvh; }
 }
 .overlay--death h2 { color: #d4362a; text-shadow: 0 0 24px rgba(212, 54, 42, 0.5); }
 .overlay--cleared h2 { color: #e8c06a; text-shadow: 0 0 24px rgba(232, 192, 106, 0.4); }
+.overlay--confirm { background: rgba(2, 3, 8, 0.5); }
+.overlay--confirm h2 { color: var(--mm-gold); font-size: 1.5rem; }
 .overlay p { color: var(--text-secondary); font-size: var(--text-sm); max-width: 46ch; }
 .overlay__penalty { color: #f0b9b3; font-size: var(--text-xs); }
 .overlay__actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); flex-wrap: wrap; justify-content: center; }
@@ -1173,5 +1192,7 @@ body[data-screen="game"] { overflow: hidden; height: 100dvh; }
   .tracker__map { font-size: 11px; }
   .tracker__map div:first-child { font-size: 13px; }
   .tracker__quest-body { display: none; }
-  .skill { width: 46px; height: 46px; }
+  .skill { width: 52px; height: 52px; font-size: 1.3rem; }
+  .skill--move { width: 44px; height: 44px; font-size: 1.05rem; }
+  .skill--util { width: 40px; height: 40px; }
 }

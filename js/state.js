@@ -128,7 +128,7 @@ export function enemyStats(tier, rarityDef) {
   const scale = Math.pow(1.32, tier - 1);
   return {
     hp: Math.round(220 * scale * rarityDef.hpMult),
-    dmg: Math.round((10 + tier * 5) * rarityDef.dmgMult),
+    dmg: Math.round((16 + tier * 8) * rarityDef.dmgMult),
     speed: 3.1,
   };
 }
