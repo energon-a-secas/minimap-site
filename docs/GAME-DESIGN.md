@@ -72,23 +72,23 @@ Magic and rare leaders roll one modifier: fast (x1.7 speed), tanky (x1.8 hp), de
 
 ## Maps
 
-`generateMap(seed, node)` in mapgen.js. Grid 96x64, rooms-and-corridors digger, 2-wide corridors, boss arena widened by 2 tiles per side.
+`generateMap(seed, node)` in mapgen.js; biome silhouettes carved by shapes.js. Grid 96x64 with three tile values: 0 wall, 1 floor, 2 water (impassable; shorelines outline automatically because edge segments trace every floor/non-floor boundary). Guarantees: entrance on the leftmost land, boss arena far away, always dry and open (radius 5), waypoints on the walked path, BFS-verified connectivity with a carved repair tunnel as the last resort. Verified by a 400-map harness across all biomes and tiers.
 
-Per-biome generator parameters and palettes live in `BIOMES` (defs.js):
+Per-biome shape and typical composition (name pools: 6 maps, 5 bosses each):
 
-| Biome | Rooms | Room size | Wind | Flavor |
+| Biome | Shape | Floor | Water | Decor |
 |---|---|---|---|---|
-| Caverns | 15 | 5-11 | 0.5 | brown/amber blobs |
-| Wetlands | 13 | 6-13 | 0.75 | green/teal |
-| Forest | 17 | 5-10 | 0.9 | leafy greens |
-| Ruins | 12 | 7-14 | 0.3 | sandstone |
-| Crypt | 18 | 4-9 | 0.4 | purple dark |
+| Caverns | cellular-automata caves, largest component kept | ~51% | tiny pools | shrooms, crystals |
+| Wetlands | land causeways over open swamp water | ~20% | ~80% | trees on shores |
+| Forest | overlapping elliptical clearings, winding paths | ~23% | none | canopy-edge trees |
+| Ruins | angular rooms, L-shapes, pillar columns | ~24% | none | pillars, rubble |
+| Crypt | narrow maze halls and small chambers | ~52% | none | rubble |
 
-Waypoints: entrance + rooms nearest to 45% and 75% of the entrance-to-boss distance, drawn as totems (green entrance, blue midpoints). Leaving a map always asks for confirmation. Fog: 9-tile reveal radius; wall segments render only once their floor tile is seen. Enemies render within 14 tiles and only on seen tiles.
+Waypoints: entrance + stones at 45% and 75% of the walked path to the boss, drawn as totems (green entrance, blue midpoints). Leaving a map always asks for confirmation. Fog: 9-tile reveal radius; wall segments render only once their floor tile is seen. Enemies render within 14 tiles and only on seen tiles.
 
 ## Atlas (`ATLAS` in defs.js)
 
-24 nodes, 8 tiers x 3 rows, deterministic layout with fixed jitter. Links: same row to next tier, plus a zigzag cross-link on alternating nodes. New characters start with the three tier-1 nodes open. Clearing a node opens everything it links to. Cleared nodes stay replayable (layouts reroll).
+22 nodes: tiers 1-7 in 3 rows plus a single apex (tier 8, "The Apex of Squinting", boss "The Overseer of the Minimap"). Each class starts at its own root (`START_NODES`: druid t1a, archer t1b, mage t1c) and only that root is open on a new character. Branches stay pure for tiers 1-2, cross-links weave from tier 3, and all three tier-7 nodes feed the apex. Clearing a node opens everything it links to; cleared nodes stay replayable (layouts reroll). The hub renders a painterly terrain underlay (atlasart.js) with medallion nodes, dashed routes, class-root markers, and a gold summit.
 
 ## v2 ideas, in rough priority order
 

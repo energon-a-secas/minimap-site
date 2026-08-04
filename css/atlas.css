@@ -1,0 +1,192 @@
+/* ── Atlas screen art ────────────────────────────────────────
+   World-map redesign for the hub. Loaded after style.css and
+   intentionally overrides its .atlas-* rules. The terrain
+   canvas is painted by js/atlasart.js; everything here styles
+   the SVG routes and medallion markers layered above it. */
+
+/* Layering: canvas behind, SVG in front, soft inner shade on top */
+.atlas-wrap {
+  position: relative;
+  background: #040714;
+}
+.atlas-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 48px rgba(4, 7, 20, 0.5);
+}
+.atlas-terrain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+#atlasSvg {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Expedition routes ─────────────────────────────────────── */
+.atlas-edge {
+  fill: none;
+  stroke: rgba(207, 214, 239, 0.16);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 5 7;
+}
+.atlas-edge--lit {
+  stroke: rgba(125, 211, 252, 0.55);
+  animation: atlas-dash-drift 2.6s linear infinite;
+}
+@keyframes atlas-dash-drift {
+  to { stroke-dashoffset: -24; }
+}
+
+/* ── Medallion markers ─────────────────────────────────────── */
+.atlas-node {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--dur, 200ms) ease;
+  outline: none;
+}
+.atlas-node:not(.atlas-node--locked):hover,
+.atlas-node:not(.atlas-node--locked):focus-visible {
+  transform: scale(1.07);
+}
+
+.atlas-node__halo {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 1.3;
+  transition: stroke var(--dur, 200ms);
+}
+.atlas-node__outer {
+  fill: none;
+  stroke: rgba(230, 226, 216, 0.14);
+  stroke-width: 1;
+}
+.atlas-node__ticks {
+  fill: none;
+  stroke: rgba(230, 226, 216, 0.14);
+  stroke-width: 1;
+}
+.atlas-node__ring {
+  fill: rgba(4, 7, 20, 0.88);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1.5;
+  transition: stroke var(--dur, 200ms), stroke-width var(--dur, 200ms);
+}
+
+/* Open: colored ring with a soft glow. --np is set per node by
+   hub.js (biome wpColor; class color on roots; gold on apex). */
+.atlas-node--open .atlas-node__ring {
+  stroke: var(--np, var(--mm-accent));
+  filter: drop-shadow(0 0 5px var(--np, var(--mm-accent)));
+}
+.atlas-node--open .atlas-node__outer,
+.atlas-node--open .atlas-node__ticks {
+  stroke: var(--np, var(--mm-accent));
+  stroke-opacity: 0.4;
+}
+.atlas-node--open:hover .atlas-node__ring,
+.atlas-node--open:focus-visible .atlas-node__ring {
+  stroke: var(--np, var(--mm-accent));
+  filter: drop-shadow(0 0 9px var(--np, var(--mm-accent)));
+}
+.atlas-node--open:focus-visible .atlas-node__halo {
+  stroke: rgba(125, 211, 252, 0.55);
+}
+
+/* Cleared: green ring and check */
+.atlas-node--cleared .atlas-node__ring {
+  stroke: rgba(74, 222, 128, 0.85);
+  filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.45));
+}
+.atlas-node--cleared .atlas-node__outer,
+.atlas-node--cleared .atlas-node__ticks {
+  stroke: rgba(74, 222, 128, 0.4);
+}
+.atlas-node--cleared .atlas-node__core { opacity: 0.45; }
+.atlas-node--cleared .atlas-node__tier { fill: #4ade80; }
+
+/* Locked: dim outline only */
+.atlas-node--locked {
+  cursor: default;
+  opacity: 0.35;
+}
+.atlas-node--locked .atlas-node__ring {
+  fill: rgba(4, 7, 20, 0.6);
+  filter: none;
+}
+.atlas-node--locked .atlas-node__outer,
+.atlas-node--locked .atlas-node__ticks {
+  stroke: rgba(255, 255, 255, 0.10);
+}
+
+/* Selected: brightest, extra outer glow ring. Ring color stays
+   state-true (green when cleared, node color when open). */
+.atlas-node--selected .atlas-node__halo {
+  stroke: var(--mm-accent);
+  filter: drop-shadow(0 0 8px var(--mm-accent));
+}
+.atlas-node--cleared.atlas-node--selected .atlas-node__halo {
+  stroke: rgba(74, 222, 128, 0.9);
+  filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.7));
+}
+.atlas-node--selected .atlas-node__ring {
+  stroke: var(--np, var(--mm-accent));
+  stroke-width: 2.6;
+}
+.atlas-node--cleared.atlas-node--selected .atlas-node__ring {
+  stroke: rgba(74, 222, 128, 0.95);
+}
+
+/* ── Root and apex ornaments ───────────────────────────────── */
+.atlas-node__glyph {
+  font-size: 13px;
+  text-anchor: middle;
+  pointer-events: none;
+  fill: var(--np, var(--mm-gold, #c8aa6e));
+  paint-order: stroke;
+  stroke: rgba(4, 7, 20, 0.8);
+  stroke-width: 2px;
+}
+.atlas-node__caption {
+  font-family: var(--hud-serif, Palatino, Georgia, serif);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-anchor: middle;
+  pointer-events: none;
+  fill: var(--mm-gold, #c8aa6e);
+  opacity: 0.9;
+  paint-order: stroke;
+  stroke: rgba(4, 7, 20, 0.75);
+  stroke-width: 2.5px;
+}
+.atlas-node__caption--apex {
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+}
+.atlas-node__rays {
+  fill: none;
+  stroke: var(--mm-gold, #c8aa6e);
+  stroke-opacity: 0.55;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+.atlas-node--apex .atlas-node__ring { stroke-width: 2; }
+.atlas-node--apex.atlas-node--selected .atlas-node__ring { stroke-width: 3; }
+
+/* ── Reduced motion ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .atlas-edge--lit { animation: none; }
+  .atlas-node { transition: none; }
+  .atlas-node:not(.atlas-node--locked):hover,
+  .atlas-node:not(.atlas-node--locked):focus-visible { transform: none; }
+}

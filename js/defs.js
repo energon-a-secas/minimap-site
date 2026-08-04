@@ -47,7 +47,7 @@ export const CLASSES = {
         desc: 'A ring of cold that slows the swarm.' },
       { id: 'surge', name: 'Arcane Surge', icon: '✦', kb: 'E', type: 'buff',
         buff: 'surge', dur: 4, atkSpeed: 1.4, moveSpeed: 1.25, mana: 50, cd: 10,
-        desc: 'Boost: cast and move faster for 4s.' },
+        desc: 'Overclock the wizard: cast and move faster for 4s.' },
       { id: 'comet', name: 'Comet', icon: '☄', kb: 'R', type: 'comet',
         radius: 3.0, dmgMult: 4.0, delay: 0.9, range: 8, mana: 90, cd: 12,
         desc: 'Call something heavy down on the thickest cluster.' },
@@ -90,12 +90,16 @@ export const BODY = {
       { id: 'short', label: 'Short crop' },
       { id: 'wild', label: 'Wild' },
       { id: 'topknot', label: 'Topknot' },
+      { id: 'ponytail', label: 'Ponytail' },
+      { id: 'mohawk', label: 'Mohawk' },
     ],
     woman: [
       { id: 'short', label: 'Short crop' },
       { id: 'braid', label: 'Braid' },
       { id: 'long', label: 'Long' },
       { id: 'bun', label: 'War bun' },
+      { id: 'twintails', label: 'Twin tails' },
+      { id: 'sidecut', label: 'Sidecut' },
     ],
   },
 };
@@ -113,26 +117,26 @@ export const BIOMES = {
     line: '#cfd6ef', wpColor: '#6fc3ff',
     bg: ['#120d08', '#2a1c10', '#3d2a14', '#1a1410', '#241207'],
     gen: { roomMin: 5, roomMax: 11, rooms: 15, wind: 0.5 },
-    maps: ['The Fetid Pool', 'Gutter of Echoes', 'The Dripping Dark', 'Chamber of Regret'],
-    bosses: ['The Azak Bog Rat', 'Gnarl, Fist of Gravel', 'The Damp Custodian'],
-    quest: { title: 'The Slithering Dead', body: 'Find whatever keeps squeaking in the dark and make it stop.' },
+    maps: ['The Fetid Pool', 'Gutter of Echoes', 'The Dripping Dark', 'Chamber of Regret', 'The Unlit Stairwell', 'Hall of Persistent Dripping'],
+    bosses: ['The Azak Bog Rat', 'Gnarl, Fist of Gravel', 'The Damp Custodian', 'Echo, Herald of Echoes', 'The Stalactite Inspector'],
+    quest: { title: 'The Slithering Dead', body: 'Something in the dark keeps squeaking. Find it. Make it stop.' },
   },
   wetlands: {
     id: 'wetlands', name: 'Wetlands',
     line: '#c9e3d8', wpColor: '#63e0c0',
     bg: ['#0a1410', '#12291c', '#1d3a24', '#0d1c12', '#25331a'],
     gen: { roomMin: 6, roomMax: 13, rooms: 13, wind: 0.75 },
-    maps: ['Chimeral Wetlands', 'The Sunken Commute', 'Mosquito Republic', 'Bog of Mild Peril'],
-    bosses: ['Ignagduk the Moist', 'The Tax Heron', 'Queen of Wet Socks'],
-    quest: { title: 'Tribal Vengeance', body: 'Travel to the wetlands and slay whoever flooded the basement.' },
+    maps: ['Chimeral Wetlands', 'The Sunken Commute', 'Mosquito Republic', 'Bog of Mild Peril', 'Delta of Diminishing Returns', 'Fen of Soft Commitments'],
+    bosses: ['Ignagduk the Moist', 'The Tax Heron', 'Queen of Wet Socks', 'Chancellor Leech', 'The Puddle That Fights Back'],
+    quest: { title: 'Tribal Vengeance', body: 'Wade into the wetlands and slay whoever flooded the basement. Bring boots.' },
   },
   forest: {
     id: 'forest', name: 'Forest',
     line: '#d7e8c9', wpColor: '#8fe06a',
     gen: { roomMin: 5, roomMax: 10, rooms: 17, wind: 0.9 },
     bg: ['#0c130a', '#1c2b14', '#2c401c', '#132008', '#3a4a1e'],
-    maps: ['The Carver Village', 'Root Tangle', 'Grove of Second Thoughts', 'The Mushroom HOA'],
-    bosses: ['Ignagduk, Bark Prophet', 'The Landlord of Leaves', 'Sap Tyrant Vex'],
+    maps: ['The Carver Village', 'Root Tangle', 'Grove of Second Thoughts', 'The Mushroom HOA', 'Thicket of Unsolicited Advice', 'The Ominous Clearing'],
+    bosses: ['Ignagduk, Bark Prophet', 'The Landlord of Leaves', 'Sap Tyrant Vex', 'Mulch, the Patient', 'The Compost Warden'],
     quest: { title: 'Legacy of the Vaal', body: 'Find the carver village and ask, firmly, about the noises.' },
   },
   ruins: {
@@ -140,8 +144,8 @@ export const BIOMES = {
     line: '#e3d9c2', wpColor: '#e0b463',
     gen: { roomMin: 7, roomMax: 14, rooms: 12, wind: 0.3 },
     bg: ['#14100a', '#2e2718', '#453a22', '#1c170e', '#332a14'],
-    maps: ['Vaults of Deprecation', 'The Broken Colonnade', 'Legacy Codebase', 'Halls of the Unmaintained'],
-    bosses: ['The Azak Archivist', 'Doryani of the Spreadsheet', 'The Last Stakeholder'],
+    maps: ['Vaults of Deprecation', 'The Broken Colonnade', 'Legacy Codebase', 'Halls of the Unmaintained', 'The Sunset Wing', 'Atrium of Broken Promises'],
+    bosses: ['The Azak Archivist', 'Doryani of the Spreadsheet', 'The Last Stakeholder', 'The Scope Creep', 'Auditor Prime'],
     quest: { title: 'The Unpaid Invoice', body: 'Recover the artifact. It is load-bearing.' },
   },
   crypt: {
@@ -149,22 +153,27 @@ export const BIOMES = {
     line: '#d9cfe8', wpColor: '#b48fe0',
     gen: { roomMin: 4, roomMax: 9, rooms: 18, wind: 0.4 },
     bg: ['#0d0a14', '#1d1430', '#2a1c45', '#120e1c', '#241433'],
-    maps: ['Tomb of the First Squint', 'The Quiet Floor', 'Ossuary of Alt Accounts', 'The Refund Crypt'],
-    bosses: ['Kadaka the Undying-ish', 'The Silent Necromancer', 'Bishop of Bones'],
-    quest: { title: 'Whispers Below', body: 'Descend into the crypt and source the whispering. Poison is suspected.' },
+    maps: ['Tomb of the First Squint', 'The Quiet Floor', 'Ossuary of Alt Accounts', 'The Refund Crypt', 'Catacomb of Unread Scrolls', 'The Do Not Disturb Wing'],
+    bosses: ['Kadaka the Undying-ish', 'The Silent Necromancer', 'Bishop of Bones', 'The Reanimated Intern', 'Curator of the Fourth Rib'],
+    quest: { title: 'Whispers Below', body: 'Descend and source the whispering. Poison is suspected. It always is.' },
   },
 };
 
 const BIOME_ORDER = ['caverns', 'wetlands', 'forest', 'ruins', 'crypt'];
 
-/** Atlas graph: 8 tiers x 3 rows on a 1000x560 canvas. Deterministic layout. */
+/** Atlas graph: three class roots climb tiers 1-7 (separate for the
+    first two tiers, interweaving from tier 3) and converge on a
+    single apex node holding the final boss. 22 nodes, 1000x560. */
 export const ATLAS = buildAtlas();
+
+/** Each class begins its climb at its own root node. */
+export const START_NODES = { druid: 't1a', archer: 't1b', mage: 't1c' };
 
 function buildAtlas() {
   const nodes = [];
   const rows = [110, 285, 460];
-  const jitter = [18, -26, 8, -12, 22, -6, 14, -20]; // fixed per tier, keeps layout organic
-  for (let tier = 1; tier <= 8; tier++) {
+  const jitter = [18, -26, 8, -12, 22, -6, 14]; // fixed per tier, keeps layout organic
+  for (let tier = 1; tier <= 7; tier++) {
     for (let row = 0; row < 3; row++) {
       const biome = BIOMES[BIOME_ORDER[(tier + row * 2) % BIOME_ORDER.length]];
       const nameIdx = (tier * 3 + row) % biome.maps.length;
@@ -174,20 +183,31 @@ function buildAtlas() {
         biome: biome.id,
         name: biome.maps[nameIdx],
         boss: biome.bosses[(tier + row) % biome.bosses.length],
-        x: 75 + (tier - 1) * 122 + (row % 2 ? -jitter[tier - 1] : jitter[tier - 1]) * 0.6,
-        y: rows[row] + jitter[(tier + row) % 8],
+        x: 68 + (tier - 1) * 118 + (row % 2 ? -jitter[tier - 1] : jitter[tier - 1]) * 0.6,
+        y: rows[row] + jitter[(tier + row) % 7],
         links: [],
+        classStart: tier === 1 ? ['druid', 'archer', 'mage'][row] : null,
       });
     }
   }
-  // Links: same row to next tier, plus a zigzag cross-link so paths branch
+  nodes.push({
+    id: 'apex', tier: 8, row: 1,
+    biome: 'crypt',
+    name: 'The Apex of Squinting',
+    boss: 'The Overseer of the Minimap',
+    x: 68 + 6 * 118 + 118, y: rows[1],
+    links: [], classStart: null,
+  });
   for (const n of nodes) {
-    if (n.tier < 8) {
+    if (n.tier < 7) {
       link(nodes, n.id, `t${n.tier + 1}${'abc'[n.row]}`);
-      if ((n.tier + n.row) % 2 === 0) {
+      // branches stay pure for tiers 1-2, then start crossing over
+      if (n.tier >= 3 && (n.tier + n.row) % 2 === 0) {
         const crossRow = n.row === 2 ? 1 : n.row + 1;
         link(nodes, n.id, `t${n.tier + 1}${'abc'[crossRow]}`);
       }
+    } else if (n.tier === 7) {
+      link(nodes, n.id, 'apex');
     }
   }
   return nodes;
@@ -201,15 +221,22 @@ function link(nodes, a, b) {
 
 export function atlasNode(id) { return ATLAS.find((n) => n.id === id); }
 
-/** Nodes open at the start of every new character. */
-export const STARTING_NODES = ['t1a', 't1b', 't1c'];
-
 export const DEATH_LINES = [
   'The minimap regrets to inform you.',
   'You were 2% from leveling. Everyone saw.',
   'A dot got you. A white one. Embarrassing.',
   'The floor circle was, in fact, not decorative.',
   'Your build was fine. Your dodging was not.',
+  'Cause of death: standing still with confidence.',
+  'The boss telegraphed that twice. In orange.',
+  'Ten percent of your XP now belongs to the void.',
+  'You died as you lived: slightly out of range.',
+  'The waypoint was right there.',
+  'Death recap unavailable. It was the dots.',
+  'Somewhere, a hardcore exile is judging you.',
 ];
 
-export const DEFAULT_NAMES = ['Exile', 'Dot Enjoyer', 'Cartographer', 'Squintlord', 'Waypoint Andy'];
+export const DEFAULT_NAMES = [
+  'Exile', 'Dot Enjoyer', 'Cartographer', 'Squintlord', 'Waypoint Andy',
+  'Map Goblin', 'Fog Appreciator', 'Corner Camper', 'The Second Monitor',
+];

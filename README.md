@@ -41,13 +41,13 @@ Pick a druid, archer, or mage, walk into procedurally generated dungeons across 
 ## Features
 
 - **Minimap-only rendering** -- fog-of-war wall outlines, waypoint diamonds, and enemy dots over a blurred biome backdrop
-- **Procedural maps** -- seeded rooms-and-corridors generator, different parameters per biome, layouts reroll every run
+- **Procedural maps** -- seeded biome-shaped generation: cellular caves, swamp causeways over impassable water, forest clearings, angular ruins, crypt mazes; layouts reroll every run
 - **Three classes, three skills each** -- Druid (burst + vine zones), Archer (pierce, overcharge, charged shot), Mage (nova, surge, comet) on Q / E / R
 - **Click or keys** -- BFS pathfinding for click-to-move, WASD and arrows for manual steering
 - **Bodies matter** -- enemies block your path; dodge roll (Space) dashes through with i-frames, sprint (Shift) is fast but one hit while sprinting stuns you
 - **Rarity dots** -- white normal, blue magic, yellow rare, orange boss, with fast / tanky / deadly modifiers
 - **Boss fights** -- health bar with a parody name, telegraphed AoE circles, adds at 66% and 33%
-- **Atlas of Worms** -- 24 map nodes across 8 tiers; clearing a boss unlocks connected nodes
+- **Atlas of Worms** -- a painted world map of 22 nodes; each class climbs from its own starting point toward one shared summit, clearing bosses to open the routes
 - **Waypoints** -- totems (green entry, blue midpoint); touch to unlock, press T to teleport, leaving asks first
 - **The grind** -- level 80 to 100 on a steepening XP curve, with a 10% XP death penalty and an over-leveling XP falloff
 - **Character creator** -- class, sex, height, build, and hair options with a silhouette placeholder, plus a skip button
@@ -83,7 +83,9 @@ minimap-site/
 │   ├── state.js          # Roster, XP curve, combat stats, atlas progress, localStorage
 │   ├── defs.js           # Classes, body options, biomes, rarities, atlas graph
 │   ├── utils.js          # Seeded RNG, math helpers, screen switching, toasts
-│   ├── mapgen.js         # Procedural dungeon generator + BFS pathfinding
+│   ├── mapgen.js         # Map assembly, guarantees, BFS pathfinding
+│   ├── shapes.js         # Biome silhouette carvers + decor scatter
+│   ├── atlasart.js       # Painterly terrain canvas behind the Atlas
 │   ├── game.js           # Engine: rAF loop, movement, roll/sprint, combat, death, waypoints
 │   ├── skills.js         # Q/E/R casting, buffs, vine zones, comet impacts
 │   ├── boss.js           # Boss activation, telegraphed slams, add waves

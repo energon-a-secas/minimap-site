@@ -138,6 +138,7 @@ export function updateSkills(run, dt) {
     im.t += dt;
     if (im.t >= im.dur && !im.fired) {
       im.fired = true;
+      run.shakeMag = Math.max(run.shakeMag || 0, 0.25);
       run.vfx.push({ type: 'cometSlam', x: im.x, y: im.y, radius: im.r, t: 0, dur: 0.4 });
       for (const e of run.enemies) {
         if (e.dead) continue;

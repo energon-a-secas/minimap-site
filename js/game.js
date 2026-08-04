@@ -10,12 +10,14 @@ import { dist, clamp, pick, mulberry32 } from './utils.js';
 import { drawFrame, paintBackdrop, resizeCanvases } from './render.js';
 import { updateHud, initHudForRun, showDeath, hideDeath, showCleared, toastXp } from './hud.js';
 import { castSkill, updateSkills, wireSkills, effectiveAtkCd, moveSpeedMult, overchargeTargets } from './skills.js';
-import { updateBoss, wireBoss } from './boss.js';
+import { updateBoss, updateEnemies, wireBoss } from './boss.js';
 
-const AGGRO = 11;
-const CONTACT = 1.0;
 const REVEAL_R = 9;
 const PLAYER_R = 0.42;
+const ACCEL = 12;         // 1/s: velocity eases toward the desired direction
+const ROLL_BUFFER = 0.25; // s: pressing roll this close to ready queues one
+const LOOK_AHEAD = 1.6;   // tiles the camera leads toward aim / held cursor
+const LOOK_EASE = 3.5;    // 1/s: easing of the look-ahead offset
 
 let rafId = null;
 let lastT = 0;
@@ -36,8 +38,9 @@ export function startRun(nodeId) {
       atkTimer: 0, aim: { x: 1, y: 0 },
       cds: [0, 0, 0], buffs: { surge: 0, overcharge: 0 },
       channelT: 0, channelSkill: null,
-      rollT: 0, rollCd: 0, rollDir: null,
+      rollT: 0, rollCd: 0, rollDir: null, rollQueued: false,
       sprint: false, stunT: 0, stunGrace: 0,
+      velX: 0, velY: 0,
     },
     enemies: buildEnemies(map),
     zones: [], impacts: [],
@@ -46,6 +49,7 @@ export function startRun(nodeId) {
     wpUnlocked: ['wp0'],
     input: { keys: {}, mouse: { down: false, x: 0, y: 0 }, target: null },
     camX: map.entrance.x, camY: map.entrance.y,
+    lookX: 0, lookY: 0, shakeMag: 0,
     over: null, cleared: false, bossShown: false,
     time: 0,
   };
@@ -124,8 +128,22 @@ function advance(run, dt) {
     reveal(run);
   }
   updateVfx(run, dt);
-  run.camX += (run.player.x - run.camX) * Math.min(1, dt * 6);
-  run.camY += (run.player.y - run.camY) * Math.min(1, dt * 6);
+  // camera leads a little toward aim (or the held cursor), eased so
+  // aim snaps during combat don't yank the view around
+  const pl = run.player;
+  let lx = pl.aim.x, ly = pl.aim.y;
+  if (run.input.mouse.down) {
+    const m = run.input.mouse, md = dist(pl.x, pl.y, m.x, m.y);
+    if (md > 0.001) { lx = (m.x - pl.x) / md; ly = (m.y - pl.y) / md; }
+  }
+  const lk = Math.min(1, dt * LOOK_EASE);
+  run.lookX += (lx * LOOK_AHEAD - run.lookX) * lk;
+  run.lookY += (ly * LOOK_AHEAD - run.lookY) * lk;
+  run.camX += (pl.x + run.lookX - run.camX) * Math.min(1, dt * 6);
+  run.camY += (pl.y + run.lookY - run.camY) * Math.min(1, dt * 6);
+  // screen shake (render reads shakeMag): fast linear decay to zero
+  run.shakeMag = Math.max(0, (run.shakeMag || 0) - dt * 2.2);
+  if (run.shakeMag < 0.001) run.shakeMag = 0;
 }
 
 /** Advance the sim without rAF, in fixed 60fps slices. Used by
@@ -172,13 +190,18 @@ function stepPlayer(run, vx, vy, step) {
 function movePlayer(run, dt) {
   const p = run.player;
 
+  // buffered roll fires the moment it is legal again (never while stunned)
+  if (p.rollQueued && p.rollT <= 0 && p.rollCd <= 0 && p.stunT <= 0) { p.rollQueued = false; doRoll(run); }
+
   // roll: fast dash, passes through enemies, i-frames
   if (p.rollT > 0) {
     p.rollT -= dt;
     stepPlayer(run, p.rollDir.x, p.rollDir.y, (MOVES.roll.dist / MOVES.roll.dur) * dt);
+    // dash done: re-path to the surviving click-target from where we landed
+    if (p.rollT <= 0 && run.input.target) setMoveTarget(run.input.target.x, run.input.target.y);
     return;
   }
-  if (p.stunT > 0 || p.channelT > 0) return; // recovery or planted feet: no walking
+  if (p.stunT > 0 || p.channelT > 0) { p.velX = 0; p.velY = 0; return; } // recovery or planted feet: no walking
 
   const { keys, mouse } = run.input;
   let vx = 0, vy = 0;
@@ -192,10 +215,14 @@ function movePlayer(run, dt) {
     run.input.path = null;
   } else {
     if (mouse.down) {
-      // held mouse: re-path toward the cursor a few times per second
+      // held mouse: re-path on a cadence, or instantly on a sharp (>45°) turn
       run.pathTimer = (run.pathTimer ?? 0) - dt;
-      if (run.pathTimer <= 0) {
-        run.pathTimer = 0.15;
+      const md = dist(p.x, p.y, mouse.x, mouse.y);
+      const mx = (mouse.x - p.x) / (md || 1), my = (mouse.y - p.y) / (md || 1);
+      const turned = md > 1 && run.pathDir && mx * run.pathDir.x + my * run.pathDir.y < 0.7071;
+      if (run.pathTimer <= 0 || turned) {
+        run.pathTimer = 0.10;
+        run.pathDir = { x: mx, y: my };
         setMoveTarget(mouse.x, mouse.y);
       }
     }
@@ -213,22 +240,38 @@ function movePlayer(run, dt) {
       }
     }
   }
-  if (!vx && !vy) return;
 
-  const len = Math.hypot(vx, vy);
-  vx /= len; vy /= len;
-  p.aim = { x: vx, y: vy };
-  let step = run.stats.speed * dt * moveSpeedMult(run);
-  if (p.sprint) step *= MOVES.sprint.speedMult;
-  stepPlayer(run, vx, vy, step);
+  // ease velocity toward the desired direction: ~80ms to full speed,
+  // near-instant stop, so it reads snappy rather than floaty
+  let speed = 0, nx = 0, ny = 0;
+  if (vx || vy) {
+    const len = Math.hypot(vx, vy);
+    nx = vx / len; ny = vy / len;
+    p.aim = { x: nx, y: ny };
+    speed = run.stats.speed * moveSpeedMult(run);
+    if (p.sprint) speed *= MOVES.sprint.speedMult;
+  }
+  const k = speed > 0 ? Math.min(1, dt * ACCEL) : 1;
+  p.velX += (nx * speed - p.velX) * k;
+  p.velY += (ny * speed - p.velY) * k;
+  if (!p.velX && !p.velY) return;
+  stepPlayer(run, p.velX, p.velY, dt);
 }
 
-/** Space: dodge roll in the current move/aim direction. */
+/** Space: dodge roll in the current move/aim direction. Pressing it
+    mid-roll or in the last beat of cooldown queues exactly one roll. */
 export function startRoll() {
   const run = state.run;
   if (!run || run.over) return;
   const p = run.player;
-  if (p.rollT > 0 || p.rollCd > 0 || p.stunT > 0) return;
+  if (p.stunT > 0) return;
+  if (p.rollT > 0 || (p.rollCd > 0 && p.rollCd <= ROLL_BUFFER)) { p.rollQueued = true; return; }
+  if (p.rollCd > 0) return;
+  doRoll(run);
+}
+
+function doRoll(run) {
+  const p = run.player;
   p.rollT = MOVES.roll.dur;
   p.rollCd = MOVES.roll.cd;
   p.rollDir = { x: p.aim.x, y: p.aim.y };
@@ -244,34 +287,7 @@ export function setSprint(on) {
   run.player.sprint = on && run.player.stunT <= 0;
 }
 
-// ── Enemies ──────────────────────────────────────────────────
-
-function updateEnemies(run, dt) {
-  const p = run.player;
-  for (const e of run.enemies) {
-    if (e.dead) continue;
-    if (e.slowT > 0) e.slowT -= dt;
-    if (e.snareT > 0) { e.snareT -= dt; continue; }
-    if (e.hitCd > 0) e.hitCd -= dt;
-
-    const d = dist(e.x, e.y, p.x, p.y);
-    const aggro = e.isBoss ? 13 : AGGRO;
-    if (d > aggro || d < CONTACT * 0.7) {
-      // in contact: bite
-      if (d < CONTACT && e.hitCd <= 0) hitPlayer(run, e.dmg, e);
-      continue;
-    }
-    let sp = e.speed * (e.slowT > 0 ? 1 - e.slowAmt : 1);
-    if (e.isBoss) sp *= 0.85;
-    const vx = ((p.x - e.x) / d) * sp * dt;
-    const vy = ((p.y - e.y) / d) * sp * dt;
-    const nx = e.x + vx;
-    if (canStand(run.map.grid, nx, e.y, 0.35)) e.x = nx;
-    const ny = e.y + vy;
-    if (canStand(run.map.grid, e.x, ny, 0.35)) e.y = ny;
-    if (dist(e.x, e.y, p.x, p.y) < CONTACT && e.hitCd <= 0) hitPlayer(run, e.dmg, e);
-  }
-}
+// ── Enemies (chase + separation AI lives in boss.js) ─────────
 
 function hitPlayer(run, dmg, e) {
   const p = run.player;
@@ -284,6 +300,7 @@ function hitPlayer(run, dmg, e) {
     p.stunT = MOVES.sprint.stun;
     p.stunGrace = MOVES.sprint.stun + MOVES.sprint.grace;
     p.sprint = false;
+    p.rollQueued = false; // a knockdown drops buffered inputs
     run.input.target = null;
     run.input.path = null;
     toastXp('Stunned! Caught sprinting.');
@@ -357,6 +374,7 @@ wireBoss({ hitPlayer, makeEnemy });
 function damageEnemy(run, e, amount) {
   if (e.dead) return;
   e.hp -= amount;
+  e.flashT = 0.12; // white hit flash (render reads, updateEnemies decays)
   run.vfx.push({ type: 'num', x: e.x, y: e.y, text: Math.round(amount), t: 0, dur: 0.6 });
   if (e.hp > 0) return;
   e.dead = true;
@@ -401,6 +419,7 @@ function onDeath(run) {
   if (run.over) return;
   run.over = 'death';
   run.player.life = 0;
+  run.shakeMag = Math.max(run.shakeMag || 0, 0.6);
   const lost = applyDeathPenalty(run.char);
   save(state);
   showDeath(pick(mulberry32(Date.now() >>> 0), DEATH_LINES), lost, run.char);
@@ -417,10 +436,11 @@ export function respawn() {
   p.cds = [0, 0, 0];
   p.buffs = { surge: 0, overcharge: 0 };
   p.channelT = 0; p.channelSkill = null;
-  p.rollT = 0; p.rollCd = 0;
+  p.rollT = 0; p.rollCd = 0; p.rollQueued = false;
   p.sprint = false; p.stunT = 0; p.stunGrace = 0;
+  p.velX = 0; p.velY = 0;
   run.input.target = null;
-  run.input.path = null;
+  run.input.path = null; run.pathDir = null;
   run.zones = [];
   run.impacts = [];
   run.over = null;
@@ -448,7 +468,9 @@ export function teleportTo(wpId) {
   if (!wp || !run.wpUnlocked.includes(wpId)) return;
   run.player.x = wp.x;
   run.player.y = wp.y;
+  run.player.velX = 0; run.player.velY = 0; run.player.rollQueued = false;
   run.input.target = null;
+  run.input.path = null; run.pathDir = null; // a stale path would resume from the old spot
   run.vfx.push({ type: 'novaRing', x: wp.x, y: wp.y, radius: 2, t: 0, dur: 0.4 });
 }
 

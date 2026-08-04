@@ -2,7 +2,7 @@
 // Roster + atlas progress persist to localStorage. The live map
 // run (state.run) is ephemeral: leaving a map discards it.
 
-import { CLASSES, STARTING_NODES, DEFAULT_NAMES, atlasNode } from './defs.js';
+import { CLASSES, ATLAS, START_NODES, DEFAULT_NAMES, atlasNode } from './defs.js';
 
 export const STORAGE_KEY = 'minimap-v1';
 
@@ -21,7 +21,21 @@ export function loadSaved(s) {
     const saved = JSON.parse(raw);
     if (Array.isArray(saved.roster)) s.roster = saved.roster;
     if (saved.activeId) s.activeId = saved.activeId;
+    migrateAtlas(s);
   } catch { /* ignore corrupted data */ }
+}
+
+/** Drop atlas node ids that no longer exist and guarantee every
+    character can still start somewhere (their class root). */
+function migrateAtlas(s) {
+  const valid = new Set(ATLAS.map((n) => n.id));
+  for (const c of s.roster) {
+    if (!c.atlas) c.atlas = { unlocked: [], cleared: [] };
+    c.atlas.unlocked = (c.atlas.unlocked || []).filter((id) => valid.has(id));
+    c.atlas.cleared = (c.atlas.cleared || []).filter((id) => valid.has(id));
+    const root = START_NODES[c.cls] || 't1a';
+    if (!c.atlas.unlocked.includes(root)) c.atlas.unlocked.push(root);
+  }
 }
 
 export function save(s) {
@@ -43,7 +57,7 @@ export function createCharacter(s, { name, cls, body }) {
     kills: 0,
     deaths: 0,
     maps: 0,
-    atlas: { unlocked: [...STARTING_NODES], cleared: [] },
+    atlas: { unlocked: [START_NODES[cls] || 't1a'], cleared: [] },
     createdAt: Date.now(),
   };
   s.roster.push(char);

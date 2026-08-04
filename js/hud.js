@@ -8,6 +8,7 @@ import { xpForLevel, LEVEL_CAP } from './state.js';
 import { CLASSES, MOVES } from './defs.js';
 
 const cache = {};
+let xpPulseTimer = 0;
 
 function set(id, prop, value) {
   const key = id + ':' + prop;
@@ -46,19 +47,21 @@ function buildSkillbar(cls) {
               title="${escHtml(sk.name)} (${sk.kb}): ${escHtml(sk.desc)} Costs ${sk.mana} mana, ${sk.cd}s cooldown.">
         <span class="skill__icon">${sk.icon}</span>
         <span class="skill__cd" id="skillCd${i}"></span>
+        <span class="skill__cdnum" id="skillCdNum${i}"></span>
         <span class="skill__key">${sk.kb}</span>
       </button>`);
   });
   parts.push(`
       <button class="skill skill--move" data-action="roll" aria-label="Dodge roll (Space)"
               title="Dodge roll (Space): dash through enemies with brief immunity.">
-        <span class="skill__icon">↷</span>
+        <span class="skill__icon skill__icon--svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14c0-5.5 4.5-10 10-10 3.4 0 6.4 1.7 8.2 4.3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M22.5 3v5.6h-5.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="17.5" r="3.4" fill="currentColor"/></svg></span>
         <span class="skill__cd" id="rollCdEl"></span>
+        <span class="skill__cdnum" id="rollCdNum"></span>
         <span class="skill__key">Spc</span>
       </button>
       <button class="skill skill--move" data-action="sprint" id="sprintBtn" aria-label="Sprint (hold Shift)"
               title="Sprint (hold Shift): move much faster, but a hit while sprinting stuns you.">
-        <span class="skill__icon">⇶</span>
+        <span class="skill__icon skill__icon--svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5l7 7-7 7M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <span class="skill__key">Shf</span>
       </button>
       <button class="skill skill--util" data-action="wp" aria-label="Waypoints (T)" title="Waypoints (T)">
@@ -82,8 +85,31 @@ export function updateHud(run) {
   set('manaFill', 'height', Math.round((p.mana / st.maxMana) * 100) + '%');
   set('manaLabel', 'text', `${fmtNum(p.mana)}/${fmtNum(st.maxMana)}`);
 
+  // low-life vignette on the stage, with hysteresis so it does not flicker
+  const lifeFrac = p.life / st.maxLife;
+  let low = cache['lowlife'] === true;
+  if (lifeFrac < 0.35) low = true;
+  else if (lifeFrac > 0.40) low = false;
+  if (cache['lowlife'] !== low) {
+    cache['lowlife'] = low;
+    $('stage')?.classList.toggle('stage--lowlife', low);
+  }
+
   const need = xpForLevel(char.level);
   const pct = char.level >= LEVEL_CAP ? 100 : Math.min(100, (char.xp / need) * 100);
+  // xp gained: flare the fill briefly (level rollover drops pct, no flare)
+  const prevPct = cache['xppct'];
+  cache['xppct'] = pct;
+  if (prevPct !== undefined && pct > prevPct) {
+    const fill = $('xpFill');
+    if (fill) {
+      clearTimeout(xpPulseTimer);
+      fill.classList.remove('xpbar__fill--pulse');
+      void fill.offsetWidth; // restart the animation
+      fill.classList.add('xpbar__fill--pulse');
+      xpPulseTimer = setTimeout(() => fill.classList.remove('xpbar__fill--pulse'), 600);
+    }
+  }
   set('xpFill', 'width', pct.toFixed(2) + '%');
   set('xpLabel', 'text', char.level >= LEVEL_CAP
     ? 'Level 100. You are free now.'
@@ -96,6 +122,7 @@ export function updateHud(run) {
   run.cls.skills.forEach((sk, i) => {
     const frac = Math.max(0, p.cds[i]) / sk.cd;
     set('skillCd' + i, 'height', Math.round(frac * 100) + '%');
+    set('skillCdNum' + i, 'text', p.cds[i] > 1 ? p.cds[i].toFixed(1) : '');
     const wasCooling = cache['cdstate:' + i];
     const cooling = p.cds[i] > 0;
     cache['cdstate:' + i] = cooling;
@@ -110,6 +137,7 @@ export function updateHud(run) {
   });
   const rollFrac = Math.max(0, p.rollCd) / MOVES.roll.cd;
   set('rollCdEl', 'height', Math.round(rollFrac * 100) + '%');
+  set('rollCdNum', 'text', p.rollCd > 1 ? p.rollCd.toFixed(1) : '');
   const sprintBtn = $('sprintBtn');
   if (sprintBtn) sprintBtn.classList.toggle('skill--active', p.sprint);
 

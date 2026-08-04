@@ -4,13 +4,16 @@
 // telegraphs, and skill VFX. Plus the blurred biome backdrop.
 
 import { $ } from './utils.js';
-import { BIOMES, RARITY } from './defs.js';
+import { BIOMES, RARITY, MOVES } from './defs.js';
 import { mulberry32 } from './utils.js';
 
 const ENEMY_VIS = 14;    // enemies show within this many tiles, radar style
 let S = 11;              // pixels per tile, set on resize
 let dpr = 1;
 let floorCanvas = null;  // offscreen 1px-per-tile fill for discovered floor
+let lastRollT = 0;       // previous frame's rollT, to catch i-frames ending
+let lastRun = null;      // reset roll tracking when the run changes
+let rollEndFx = null;    // {x, y, t} white ring when i-frames end
 
 export function resizeCanvases() {
   const stage = $('stage');
@@ -61,14 +64,18 @@ export function drawFrame(run) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, c.width, c.height);
 
-  // world transform: camera centered
+  // world transform: camera centered, jittered by engine-owned shake
   const px = S * dpr;
-  ctx.setTransform(px, 0, 0, px, c.width / 2 - run.camX * px, c.height / 2 - run.camY * px);
+  const shk = run.shakeMag || 0;
+  const cx = run.camX + (shk ? (Math.random() - 0.5) * shk : 0);
+  const cy = run.camY + (shk ? (Math.random() - 0.5) * shk : 0);
+  ctx.setTransform(px, 0, 0, px, c.width / 2 - cx * px, c.height / 2 - cy * px);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   drawFloorFill(ctx, run);
   drawWalls(ctx, run, biome);
+  drawDecor(ctx, run);
   drawWaypoints(ctx, run);
   drawTarget(ctx, run);
   drawZones(ctx, run);
@@ -86,7 +93,12 @@ function drawFloorFill(ctx, run) {
   fctx.clearRect(0, 0, map.w, map.h);
   fctx.fillStyle = 'rgba(150,160,200,0.10)';
   for (let i = 0; i < seen.length; i++) {
-    if (seen[i] && map.grid[i]) fctx.fillRect(i % map.w, (i / map.w) | 0, 1, 1);
+    if (seen[i] && map.grid[i] === 1) fctx.fillRect(i % map.w, (i / map.w) | 0, 1, 1);
+  }
+  // water (grid value 2): dim blue-teal so lakes read inside their shorelines
+  fctx.fillStyle = 'rgba(56,142,168,0.24)';
+  for (let i = 0; i < seen.length; i++) {
+    if (seen[i] && map.grid[i] === 2) fctx.fillRect(i % map.w, (i / map.w) | 0, 1, 1);
   }
   ctx.save();
   ctx.imageSmoothingEnabled = true;
@@ -109,6 +121,24 @@ function drawWalls(ctx, run, biome) {
   ctx.strokeStyle = hexA(biome.line, 0.95);
   ctx.lineWidth = 0.13;
   ctx.stroke();
+}
+
+/** Decor kinds as tiny minimap marks: single strokes and dots, muted tones. */
+const DECOR_DRAW = {
+  rubble(ctx, x, y) { dot(ctx, x - 0.12, y + 0.03, 0.09, 'rgba(205,205,215,0.30)'); dot(ctx, x + 0.11, y - 0.09, 0.07, 'rgba(205,205,215,0.26)'); },
+  shroom(ctx, x, y) { dot(ctx, x, y - 0.05, 0.13, 'rgba(212,168,220,0.40)'); },
+  tree(ctx, x, y) { mark(ctx, [[x - 0.2, y + 0.18], [x, y - 0.24], [x + 0.2, y + 0.18]], 'rgba(138,188,118,0.45)', 0.09); },
+  pillar(ctx, x, y) { mark(ctx, [[x, y + 0.22], [x, y - 0.26]], 'rgba(220,208,176,0.40)', 0.12); },
+  crystal(ctx, x, y) { mark(ctx, [[x, y - 0.22], [x + 0.15, y], [x, y + 0.22], [x - 0.15, y], [x, y - 0.22]], 'rgba(150,218,240,0.50)', 0.08); },
+};
+
+function drawDecor(ctx, run) {
+  const decor = run.map.decor;
+  if (!decor) return;
+  for (const d of decor) {
+    if (!run.seen[(d.y | 0) * run.map.w + (d.x | 0)]) continue;
+    DECOR_DRAW[d.kind]?.(ctx, d.x, d.y);
+  }
 }
 
 /** Waypoints are totems: green for the entrance, blue for midpoints. */
@@ -266,6 +296,8 @@ function drawEnemies(ctx, run) {
     ctx.beginPath();
     ctx.arc(e.x, e.y, e.isBoss ? r * (1.15 + 0.12 * Math.sin(run.time * 5)) : r, 0, Math.PI * 2);
     ctx.fill();
+    // hit flash: engine sets flashT on damage, we just brighten while it lasts
+    if (e.flashT > 0) dot(ctx, e.x, e.y, r * 1.08, `rgba(255,255,255,${Math.min(0.9, e.flashT * 6)})`);
     if (e.snareT > 0) ring(ctx, e.x, e.y, r + 0.25, 'rgba(125,187,94,0.9)', 0.1);
     else if (e.slowT > 0) ring(ctx, e.x, e.y, r + 0.25, 'rgba(127,212,240,0.9)', 0.1);
   }
@@ -273,8 +305,33 @@ function drawEnemies(ctx, run) {
 
 function drawPlayer(ctx, run) {
   const p = run.player;
+  // white pop the instant i-frames end, so "hittable again" is readable
+  if (run !== lastRun) { lastRun = run; lastRollT = 0; rollEndFx = null; }
+  if (lastRollT > 0 && p.rollT <= 0) rollEndFx = { x: p.x, y: p.y, t: run.time };
+  lastRollT = p.rollT;
+  if (rollEndFx) {
+    const rk = (run.time - rollEndFx.t) / 0.28;
+    if (rk >= 1) rollEndFx = null;
+    else ring(ctx, rollEndFx.x, rollEndFx.y, 0.5 + rk * 1.1, `rgba(255,255,255,${0.85 * (1 - rk)})`, 0.12);
+  }
   ctx.save();
   ctx.translate(p.x, p.y);
+  // rolling: ghost the marker so the invulnerability window is readable
+  if (p.rollT > 0) {
+    // afterimages trailing the roll direction
+    const fade = Math.min(1, p.rollT / MOVES.roll.dur);
+    for (let i = 1; i <= 3; i++) {
+      dot(ctx, -p.aim.x * i * 0.5, -p.aim.y * i * 0.5, 0.42 - i * 0.08, `rgba(255,255,255,${fade * (0.32 - i * 0.08)})`);
+    }
+    ctx.setLineDash([0.16, 0.12]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 0.09;
+    ctx.beginPath();
+    ctx.arc(0, 0, 1.0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.35;
+  }
   // stunned: spinning dazed arcs
   if (p.stunT > 0) {
     ctx.strokeStyle = 'rgba(255,210,62,0.9)';
@@ -349,21 +406,30 @@ const VFX_DRAW = {
     ctx.fill();
   },
   pop(ctx, v, k) {
+    // death burst scaled by rarity (pop color is the rarity color)
+    const sc = POP_SCALE[v.color] || 1;
     const rng = mulberry32(((v.x * 73 + v.y * 179) * 1000) | 0);
-    for (let i = 0; i < 6; i++) {
+    const n = 6 + (((sc - 1) * 5) | 0);
+    for (let i = 0; i < n; i++) {
       const ang = rng() * Math.PI * 2;
-      const d = k * (0.5 + rng() * 0.8);
+      const d = k * (0.5 + rng() * 0.8) * sc;
       ctx.fillStyle = hexA(v.color, 1 - k);
       ctx.fillRect(v.x + Math.cos(ang) * d, v.y + Math.sin(ang) * d, 0.12, 0.12);
     }
+    if (sc > 1) ring(ctx, v.x, v.y, 0.3 + k * 1.2 * sc, `rgba(255,255,255,${0.6 * (1 - k)})`, 0.1);
+    if (sc > 2) dot(ctx, v.x, v.y, (1 - k) * 1.6, `rgba(255,238,200,${0.5 * (1 - k)})`);
   },
   num(ctx, v, k) {
-    ctx.font = '0.72px ui-monospace, monospace';
+    // font grows mildly with damage magnitude, capped at 1.5x base
+    const mag = Math.min(1.5, 1 + Math.max(0, Math.log10(Math.max(1, Number(v.text) || 1)) - 1) * 0.25);
+    ctx.font = (0.72 * mag).toFixed(2) + 'px ui-monospace, monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = `rgba(255,244,214,${1 - k})`;
     ctx.fillText(String(v.text), v.x, v.y - 0.6 - k * 0.9);
   },
 };
+
+const POP_SCALE = { [RARITY.normal.color]: 1, [RARITY.magic.color]: 1.5, [RARITY.rare.color]: 1.8, [RARITY.boss.color]: 2.6 };
 
 function drawVfx(ctx, run) {
   for (const v of run.vfx) {
@@ -388,6 +454,22 @@ function ring(ctx, x, y, r, style, width) {
   ctx.lineWidth = width;
   ctx.beginPath();
   ctx.arc(x, y, Math.max(0.01, r), 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function dot(ctx, x, y, r, style) {
+  ctx.fillStyle = style;
+  ctx.beginPath();
+  ctx.arc(x, y, Math.max(0.01, r), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function mark(ctx, pts, style, width) {
+  ctx.strokeStyle = style;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
   ctx.stroke();
 }
 

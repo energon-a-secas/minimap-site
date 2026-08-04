@@ -4,7 +4,7 @@ Next steps for replacing placeholders with real art. Everything ships without th
 
 ## 1. Character portraits (replaces the SVG silhouette)
 
-The chargen preview (`renderPortrait` in `js/chargen.js`) currently draws an SVG silhouette. Real portraits drop in as images.
+The chargen preview (`renderPortrait` in `js/chargen.js`) currently draws an SVG silhouette. The silhouette baseline is now layered (class-colored arch backdrop, rim light, ground shadow, per-class props, idle breathe animation) but it remains the placeholder: the drop-in contract below is unchanged, and the silhouette stays the final fallback. Roster cards reuse a compact variant of the same SVG at 56px, so real art should swap into both spots. Real portraits drop in as images.
 
 **Drop-in contract**
 
