@@ -567,25 +567,6 @@ button:active,
 }
 
 /* ── Footer ────────────────────────────────────────────────── */
-.info-footer {
-  text-align: center;
-  padding: var(--space-6) var(--space-6) 28px;
-  color: var(--text-muted);
-  font-size: .78em;
-  line-height: 1.8;
-  border-top: 1px solid var(--border-subtle);
-  margin-top: var(--space-8);
-}
-.footer-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: color var(--dur);
-}
-.footer-link:hover,
-.footer-link:focus-visible {
-  color: var(--text-secondary);
-  text-decoration: underline;
-}
 
 /* ── Focus styles ──────────────────────────────────────────── */
 :focus-visible {
