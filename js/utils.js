@@ -75,6 +75,10 @@ export function showToast(msg) {
   if (!box) return;
   const el = document.createElement('div');
   el.className = 'toast';
+  // Announced by screen readers. Without these the toast is
+  // invisible to anyone not looking at that corner of the screen.
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
   el.textContent = msg;
   box.appendChild(el);
   setTimeout(() => el.classList.add('visible'), 10);
