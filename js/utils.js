@@ -1,3 +1,12 @@
+// escHtml and debounce come from the DOM Kit (js/neorgon-dom.js). This
+// site's showToast is left alone: it creates and removes its own element
+// rather than toggling a class, which the kit's contract does not cover.
+//
+// Do not edit js/neorgon-dom.js. Edit packages/neorgon-ui/dom/ and run
+// packages/neorgon-ui/sync-dom.sh.
+import { escHtml, debounce } from './neorgon-dom.js';
+export { escHtml, debounce };
+
 // ── Shared utilities ─────────────────────────────────────────
 // Small, pure helper functions used across multiple modules.
 
@@ -7,15 +16,6 @@ export function $(id) {
   return _els[id] || (_els[id] = document.getElementById(id));
 }
 
-/** Escape HTML special characters. */
-export function escHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /** Seeded PRNG (mulberry32). Returns a function yielding [0, 1). */
 export function mulberry32(seed) {
@@ -86,11 +86,3 @@ export function showToast(msg) {
   clearTimeout(_toastTimer);
 }
 
-/** Simple debounce. */
-export function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
